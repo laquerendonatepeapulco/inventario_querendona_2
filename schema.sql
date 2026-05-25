@@ -11,6 +11,14 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS app_sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -71,6 +79,32 @@ CREATE TABLE IF NOT EXISTS stock_alerts (
   resolved_at TIMESTAMPTZ
 );
 
+CREATE TABLE IF NOT EXISTS shift_exit_alert_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shift_key TEXT NOT NULL,
+  shift_date DATE NOT NULL,
+  bucket_minutes INTEGER NOT NULL,
+  missing_users TEXT NOT NULL DEFAULT '',
+  missing_user_ids TEXT NOT NULL DEFAULT '',
+  notification_results JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (shift_key, shift_date, bucket_minutes)
+);
+
+CREATE TABLE IF NOT EXISTS shift_exit_completion_notices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shift_key TEXT NOT NULL,
+  shift_date DATE NOT NULL,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  user_name TEXT NOT NULL,
+  username TEXT NOT NULL,
+  notification_results JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (shift_key, shift_date, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_app_sessions_user_id ON app_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_app_sessions_expires_at ON app_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_products_subcategory ON products(category, subcategory);
 CREATE INDEX IF NOT EXISTS idx_movements_created_at ON movements(created_at DESC);
@@ -78,3 +112,5 @@ CREATE INDEX IF NOT EXISTS idx_movements_type ON movements(movement_type, create
 CREATE INDEX IF NOT EXISTS idx_purchase_entries_created_at ON purchase_entries(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_purchase_entries_supplier ON purchase_entries(supplier);
 CREATE INDEX IF NOT EXISTS idx_stock_alerts_status ON stock_alerts(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_shift_exit_alert_runs_created_at ON shift_exit_alert_runs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_shift_exit_completion_notices_created_at ON shift_exit_completion_notices(created_at DESC);

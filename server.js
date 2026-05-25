@@ -9,11 +9,13 @@ const { Pool } = require("pg");
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
+const publicDir = path.join(__dirname, "public");
+const isVercel = Boolean(process.env.VERCEL);
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 
-const sessions = new Map();
+let readyPromise = null;
 
 const demoProducts = [
   ["Refresco cola 2 L", "BEB-REF-COLA2", "Botella familiar de refresco de cola", "Bebidas", "Refrescos", "Coca Cola FEMSA", 24, 8, 31, 45, "Bodega / Bebidas"],
@@ -57,10 +59,19 @@ const shiftExitAlertShifts = [
 ];
 
 app.use(express.json({ limit: "2mb" }));
-app.use(express.static(__dirname));
+app.use(express.static(publicDir));
 
 function hashPassword(password, salt) {
   return crypto.createHash("sha256").update(`${salt}:${password}`).digest("hex");
+}
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(String(token || "")).digest("hex");
+}
+
+function sessionDurationDays() {
+  const days = Number(process.env.SESSION_DAYS || 30);
+  return Number.isFinite(days) && days > 0 ? days : 30;
 }
 
 function userDto(user) {
@@ -441,6 +452,14 @@ function shiftAlertCheckMs() {
   return (Number.isFinite(seconds) && seconds > 0 ? seconds : 60) * 1000;
 }
 
+function cronRequestAuthorized(req) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return !isVercel;
+
+  const auth = req.get("authorization") || "";
+  return auth === `Bearer ${secret}` || req.query.secret === secret;
+}
+
 function timeToMinutes(value) {
   const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return 0;
@@ -742,10 +761,24 @@ function startShiftExitAlertScheduler() {
   setInterval(run, shiftAlertCheckMs());
 }
 
-function scheduleShiftExitCompletionNotice(userId) {
-  notifyShiftExitCompletionForUser(userId).catch((error) => {
-    console.warn("No se pudo avisar que la salida ya fue registrada:", error.message);
-  });
+function ensureReady({ scheduler = false } = {}) {
+  if (!process.env.DATABASE_URL) {
+    return Promise.reject(new Error("Falta DATABASE_URL. Configura PostgreSQL antes de iniciar."));
+  }
+
+  if (!readyPromise) {
+    readyPromise = (async () => {
+      await ensureSchema();
+      await seedUsers();
+      await seedProducts();
+      if (scheduler) startShiftExitAlertScheduler();
+    })().catch((error) => {
+      readyPromise = null;
+      throw error;
+    });
+  }
+
+  return readyPromise;
 }
 
 function smartAlertTypeLabel(type) {
@@ -1888,6 +1921,17 @@ async function ensureSchema() {
     )
   `);
   await query(`
+    CREATE TABLE IF NOT EXISTS app_sessions (
+      token_hash TEXT PRIMARY KEY,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_app_sessions_user_id ON app_sessions(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_app_sessions_expires_at ON app_sessions(expires_at)`);
+  await query(`
     CREATE TABLE IF NOT EXISTS products (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
@@ -2147,17 +2191,35 @@ function sanitizePurchase(input) {
   return purchase;
 }
 
-function authRequired(req, res, next) {
+async function authRequired(req, res, next) {
   const header = req.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  const user = sessions.get(token);
-  if (!user) {
-    res.status(401).json({ error: "Sesion no valida" });
-    return;
+  const tokenHash = hashToken(token);
+
+  try {
+    const result = await query(
+      `SELECT users.*
+       FROM app_sessions
+       JOIN users ON users.id = app_sessions.user_id
+       WHERE app_sessions.token_hash = $1
+         AND app_sessions.expires_at > now()`,
+      [tokenHash]
+    );
+    const user = result.rows[0];
+
+    if (!token || !user) {
+      res.status(401).json({ error: "Sesion no valida" });
+      return;
+    }
+
+    await query(`UPDATE app_sessions SET last_seen_at = now() WHERE token_hash = $1`, [tokenHash]);
+    req.token = token;
+    req.tokenHash = tokenHash;
+    req.user = userDto(user);
+    next();
+  } catch (error) {
+    next(error);
   }
-  req.token = token;
-  req.user = user;
-  next();
 }
 
 function adminRequired(req, res, next) {
@@ -2176,6 +2238,24 @@ function stockAccessRequired(req, res, next) {
   next();
 }
 
+app.use("/api", (req, res, next) => {
+  ensureReady().then(() => next()).catch(next);
+});
+
+app.get("/api/cron/shift-exit-alerts", async (req, res, next) => {
+  if (!cronRequestAuthorized(req)) {
+    res.status(401).json({ error: "Cron no autorizado" });
+    return;
+  }
+
+  try {
+    const result = await runShiftExitAlertCheck();
+    res.json({ ok: true, result });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/auth/login", async (req, res, next) => {
   try {
     const { username = "", password = "" } = req.body;
@@ -2189,16 +2269,24 @@ app.post("/api/auth/login", async (req, res, next) => {
 
     const token = crypto.randomBytes(32).toString("hex");
     const safeUser = userDto(user);
-    sessions.set(token, safeUser);
+    await query(
+      `INSERT INTO app_sessions (token_hash, user_id, expires_at)
+       VALUES ($1, $2, now() + ($3::int * INTERVAL '1 day'))`,
+      [hashToken(token), user.id, sessionDurationDays()]
+    );
     res.json({ token, user: safeUser });
   } catch (error) {
     next(error);
   }
 });
 
-app.post("/api/auth/logout", authRequired, (req, res) => {
-  sessions.delete(req.token);
-  res.json({ ok: true });
+app.post("/api/auth/logout", authRequired, async (req, res, next) => {
+  try {
+    await query(`DELETE FROM app_sessions WHERE token_hash = $1`, [req.tokenHash]);
+    res.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post("/api/auth/change-password", authRequired, async (req, res, next) => {
@@ -2233,6 +2321,7 @@ app.post("/api/auth/change-password", authRequired, async (req, res, next) => {
       `UPDATE users SET password_hash = $1, salt = $2 WHERE id = $3`,
       [hashPassword(newPassword, salt), salt, user.id]
     );
+    await query(`DELETE FROM app_sessions WHERE user_id = $1 AND token_hash <> $2`, [user.id, req.tokenHash]);
 
     res.json({ ok: true });
   } catch (error) {
@@ -2278,12 +2367,7 @@ app.post("/api/users/:id/reset-password", authRequired, adminRequired, async (re
       `UPDATE users SET password_hash = $1, salt = $2 WHERE id = $3`,
       [hashPassword(newPassword, salt), salt, user.id]
     );
-
-    for (const [token, sessionUser] of sessions.entries()) {
-      if (sessionUser.id === user.id && token !== req.token) {
-        sessions.delete(token);
-      }
-    }
+    await query(`DELETE FROM app_sessions WHERE user_id = $1 AND token_hash <> $2`, [user.id, req.tokenHash]);
 
     res.json({ user: userDto(user) });
   } catch (error) {
@@ -2493,9 +2577,6 @@ app.post("/api/products/:id/adjust", authRequired, adminRequired, async (req, re
       Number(product.cost)
     );
     await client.query("COMMIT");
-    if (req.user.role === "staff" && applied < 0) {
-      scheduleShiftExitCompletionNotice(req.user.id);
-    }
     res.json({ product: productDto(updated.rows[0]) });
   } catch (error) {
     await client.query("ROLLBACK");
@@ -2552,10 +2633,19 @@ app.post("/api/products/:id/exit", authRequired, stockAccessRequired, async (req
       Number(product.cost)
     );
     await client.query("COMMIT");
+    let completionNotice = null;
     if (req.user.role === "staff") {
-      scheduleShiftExitCompletionNotice(req.user.id);
+      try {
+        completionNotice = await notifyShiftExitCompletionForUser(req.user.id);
+      } catch (error) {
+        console.warn("No se pudo avisar que la salida ya fue registrada:", error.message);
+        completionNotice = {
+          skipped: "notification_failed",
+          error: publicNotificationError(error.message)
+        };
+      }
     }
-    res.json({ product: productDto(updated.rows[0]) });
+    res.json({ product: productDto(updated.rows[0]), completionNotice });
   } catch (error) {
     await client.query("ROLLBACK");
     next(error);
@@ -3099,7 +3189,7 @@ function sanitizePurchaseBackup(input, productId) {
 }
 
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(publicDir, "index.html"));
 });
 
 app.use((error, req, res, next) => {
@@ -3111,22 +3201,18 @@ app.use((error, req, res, next) => {
 });
 
 async function start() {
-  if (!process.env.DATABASE_URL) {
-    console.error("Falta DATABASE_URL. Copia .env.example a .env y configura PostgreSQL.");
-    process.exit(1);
-  }
-
-  await ensureSchema();
-  await seedUsers();
-  await seedProducts();
-  startShiftExitAlertScheduler();
+  await ensureReady({ scheduler: true });
 
   app.listen(port, () => {
     console.log(`inventario_querendona listo en http://localhost:${port}`);
   });
 }
 
-start().catch((error) => {
-  console.error("No se pudo iniciar el servidor:", error);
-  process.exit(1);
-});
+if (require.main === module) {
+  start().catch((error) => {
+    console.error("No se pudo iniciar el servidor:", error);
+    process.exit(1);
+  });
+}
+
+module.exports = app;

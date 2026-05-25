@@ -45,6 +45,49 @@ http://localhost:3000/login.html
 - Administradores: `admin`, `admin2`, `admin3` con contrasena `admin123`.
 - Cocineros: `cocinero`, `cocinero2`, `cocinero3`, `cocinero4`, `cocinero5`, `cocinero6` con contrasena `alta123`.
 
+## Despliegue en Vercel
+
+La app esta preparada para Vercel como una aplicacion Express exportada desde `server.js`. Los archivos visibles del navegador viven en `public/`, porque Vercel sirve los archivos estaticos desde esa carpeta.
+
+Antes de desplegar necesitas una base PostgreSQL accesible desde internet, por ejemplo Vercel Postgres, Neon o Supabase. Tu PostgreSQL local no funcionara en produccion.
+
+Pasos generales:
+
+1. Sube el proyecto a GitHub.
+2. En Vercel, crea un proyecto nuevo importando el repositorio.
+3. Selecciona el framework `Other`.
+4. En `Environment Variables`, copia las variables de `.env.example` y pega tus valores reales.
+5. No subas `.env`; solo configura esos valores en Vercel.
+6. Despliega.
+
+Variables importantes para Vercel:
+
+```env
+DATABASE_URL=postgres://...
+WHATSAPP_PHONE_NUMBER_ID=
+WHATSAPP_ACCESS_TOKEN=
+ALERT_WHATSAPP_TO=
+SMTP_HOST=
+SMTP_USER=
+SMTP_PASS=
+ALERT_EMAIL_FROM=
+ALERT_EMAIL_TO=
+CRON_SECRET=una_clave_larga_aleatoria
+```
+
+Los avisos automaticos por turno no usan `setInterval` en Vercel. Para ejecutarlos, llama este endpoint cada 20 minutos desde Vercel Cron o un servicio externo de cron:
+
+```text
+GET https://tu-dominio.vercel.app/api/cron/shift-exit-alerts
+Authorization: Bearer TU_CRON_SECRET
+```
+
+Si tu servicio de cron no permite headers, tambien puedes llamar:
+
+```text
+https://tu-dominio.vercel.app/api/cron/shift-exit-alerts?secret=TU_CRON_SECRET
+```
+
 ## Base de datos
 
 El servidor crea automaticamente las tablas si no existen y carga datos demo cuando la tabla de productos esta vacia. El archivo `schema.sql` tambien contiene el esquema por si prefieres ejecutarlo manualmente.
