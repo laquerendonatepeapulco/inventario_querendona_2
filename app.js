@@ -1,0 +1,2375 @@
+const THEME_KEY = "inventario_querendona-theme";
+
+let state = {
+  products: [],
+  movements: [],
+  incomeReport: null,
+  exitReport: null,
+  purchaseReport: null,
+  comparisonReport: null,
+  profitReport: null,
+  stockAlerts: [],
+  smartAlerts: [],
+  restockSuggestions: [],
+  users: [],
+  theme: localStorage.getItem(THEME_KEY) || "light"
+};
+let currentUser = window.Auth.requireSession();
+let activePanel = "dashboard";
+
+const els = {
+  panels: document.querySelectorAll(".panel"),
+  navItems: document.querySelectorAll(".nav-item"),
+  categoryFilter: document.querySelector("#categoryFilter"),
+  subcategoryFilter: document.querySelector("#subcategoryFilter"),
+  stockFilter: document.querySelector("#stockFilter"),
+  productRows: document.querySelector("#productRows"),
+  alertList: document.querySelector("#alertList"),
+  smartAlertCount: document.querySelector("#smartAlertCount"),
+  restockSuggestionList: document.querySelector("#restockSuggestionList"),
+  restockSuggestionCount: document.querySelector("#restockSuggestionCount"),
+  adminAlertSection: document.querySelector("#adminAlertSection"),
+  adminAlertList: document.querySelector("#adminAlertList"),
+  adminAlertCount: document.querySelector("#adminAlertCount"),
+  movementTimeline: document.querySelector("#movementTimeline"),
+  movementTypeFilter: document.querySelector("#movementTypeFilter"),
+  reportStart: document.querySelector("#reportStart"),
+  reportEnd: document.querySelector("#reportEnd"),
+  reportIncome: document.querySelector("#reportIncome"),
+  reportUnits: document.querySelector("#reportUnits"),
+  reportMovements: document.querySelector("#reportMovements"),
+  reportRange: document.querySelector("#reportRange"),
+  incomeReportRows: document.querySelector("#incomeReportRows"),
+  exitStart: document.querySelector("#exitStart"),
+  exitEnd: document.querySelector("#exitEnd"),
+  exitTotalValue: document.querySelector("#exitTotalValue"),
+  exitUnits: document.querySelector("#exitUnits"),
+  exitMovements: document.querySelector("#exitMovements"),
+  exitRange: document.querySelector("#exitRange"),
+  exitReportRows: document.querySelector("#exitReportRows"),
+  exitRegisterForm: document.querySelector("#exitRegisterForm"),
+  exitCategory: document.querySelector("#exitCategory"),
+  exitProduct: document.querySelector("#exitProduct"),
+  exitProductSearch: document.querySelector("#exitProductSearch"),
+  exitProductOptions: document.querySelector("#exitProductOptions"),
+  exitRegisterMovementType: document.querySelector("#exitRegisterMovementType"),
+  exitRegisterQuantity: document.querySelector("#exitRegisterQuantity"),
+  exitRegisterNote: document.querySelector("#exitRegisterNote"),
+  exitStockPreview: document.querySelector("#exitStockPreview"),
+  comparisonStart: document.querySelector("#comparisonStart"),
+  comparisonEnd: document.querySelector("#comparisonEnd"),
+  comparisonPurchasedUnits: document.querySelector("#comparisonPurchasedUnits"),
+  comparisonUsedUnits: document.querySelector("#comparisonUsedUnits"),
+  comparisonConsumedCost: document.querySelector("#comparisonConsumedCost"),
+  comparisonNetUnits: document.querySelector("#comparisonNetUnits"),
+  comparisonRows: document.querySelector("#comparisonRows"),
+  purchaseForm: document.querySelector("#purchaseForm"),
+  purchaseCategory: document.querySelector("#purchaseCategory"),
+  purchaseProduct: document.querySelector("#purchaseProduct"),
+  purchaseSupplier: document.querySelector("#purchaseSupplier"),
+  purchaseQuantity: document.querySelector("#purchaseQuantity"),
+  purchaseUnitCost: document.querySelector("#purchaseUnitCost"),
+  purchaseNote: document.querySelector("#purchaseNote"),
+  purchaseTotal: document.querySelector("#purchaseTotal"),
+  purchaseStart: document.querySelector("#purchaseStart"),
+  purchaseEnd: document.querySelector("#purchaseEnd"),
+  purchaseReportCategory: document.querySelector("#purchaseReportCategory"),
+  purchaseReportProduct: document.querySelector("#purchaseReportProduct"),
+  purchaseTotalCost: document.querySelector("#purchaseTotalCost"),
+  purchaseUnits: document.querySelector("#purchaseUnits"),
+  purchaseEntries: document.querySelector("#purchaseEntries"),
+  purchaseSuppliers: document.querySelector("#purchaseSuppliers"),
+  purchaseRows: document.querySelector("#purchaseRows"),
+  supplierOptions: document.querySelector("#supplierOptions"),
+  profitStart: document.querySelector("#profitStart"),
+  profitEnd: document.querySelector("#profitEnd"),
+  profitIncome: document.querySelector("#profitIncome"),
+  profitCost: document.querySelector("#profitCost"),
+  profitGain: document.querySelector("#profitGain"),
+  profitMargin: document.querySelector("#profitMargin"),
+  profitRows: document.querySelector("#profitRows"),
+  modal: document.querySelector("#productModal"),
+  quickModal: document.querySelector("#quickProductModal"),
+  quickTitle: document.querySelector("#quickProductTitle"),
+  quickSubtitle: document.querySelector("#quickProductSubtitle"),
+  quickBody: document.querySelector("#quickProductBody"),
+  exitModal: document.querySelector("#exitModal"),
+  exitForm: document.querySelector("#exitForm"),
+  exitProductId: document.querySelector("#exitProductId"),
+  exitProductName: document.querySelector("#exitProductName"),
+  exitMovementType: document.querySelector("#exitMovementType"),
+  exitQuantity: document.querySelector("#exitQuantity"),
+  exitNote: document.querySelector("#exitNote"),
+  form: document.querySelector("#productForm"),
+  modalTitle: document.querySelector("#modalTitle"),
+  toast: document.querySelector("#toast"),
+  chart: document.querySelector("#categoryChart"),
+  currentUserName: document.querySelector("#currentUserName"),
+  currentUserRole: document.querySelector("#currentUserRole"),
+  changePasswordForm: document.querySelector("#changePasswordForm"),
+  currentPassword: document.querySelector("#currentPassword"),
+  newPassword: document.querySelector("#newPassword"),
+  confirmPassword: document.querySelector("#confirmPassword"),
+  adminPasswordResetCard: document.querySelector("#adminPasswordResetCard"),
+  resetUserPasswordForm: document.querySelector("#resetUserPasswordForm"),
+  resetPasswordUser: document.querySelector("#resetPasswordUser"),
+  resetPasswordValue: document.querySelector("#resetPasswordValue"),
+  resetPasswordConfirm: document.querySelector("#resetPasswordConfirm")
+};
+
+const formatter = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+  currencyDisplay: "code",
+  maximumFractionDigits: 0
+});
+
+const percentFormatter = new Intl.NumberFormat("es-MX", {
+  maximumFractionDigits: 1,
+  minimumFractionDigits: 0
+});
+
+const movementTypeLabels = {
+  alta: "Alta",
+  entrada: "Entrada",
+  compra: "Compra",
+  reposicion: "Reposicion",
+  venta: "Uso en cocina",
+  salida: "Uso de insumo",
+  ajuste: "Ajuste",
+  merma: "Merma",
+  danado: "Producto dañado",
+  consumo_interno: "Consumo interno",
+  eliminacion: "Eliminacion"
+};
+
+const exitTypeNotes = {
+  venta: "Uso en cocina",
+  merma: "Merma",
+  danado: "Producto dañado",
+  consumo_interno: "Consumo interno",
+  ajuste: "Ajuste de inventario"
+};
+
+async function init() {
+  document.body.classList.toggle("dark", state.theme === "dark");
+  setDefaultReportDates();
+  bindEvents();
+  currentUser = await window.Auth.verifySession();
+  if (!currentUser) {
+    window.location.replace("login.html");
+    return;
+  }
+  await loadRemoteData();
+  render();
+  renderSession();
+}
+
+async function loadRemoteData() {
+  const requests = [
+    window.Auth.apiFetch("/api/products"),
+    window.Auth.apiFetch("/api/movements")
+  ];
+
+  if (isAdmin()) {
+    requests.push(window.Auth.apiFetch("/api/stock-alerts"));
+    requests.push(window.Auth.apiFetch("/api/smart-alerts"));
+    requests.push(window.Auth.apiFetch("/api/restock-suggestions"));
+    requests.push(window.Auth.apiFetch("/api/users"));
+  }
+
+  const [productsResponse, movementsResponse, alertsResponse, smartAlertsResponse, restockSuggestionsResponse, usersResponse] = await Promise.all(requests);
+
+  const productsPayload = await productsResponse.json();
+  const movementsPayload = await movementsResponse.json();
+  state.products = productsPayload.products || [];
+  state.movements = movementsPayload.movements || [];
+  state.stockAlerts = alertsResponse ? (await safeJsonPayload(alertsResponse)).alerts || [] : [];
+  state.smartAlerts = smartAlertsResponse ? (await safeJsonPayload(smartAlertsResponse)).alerts || [] : [];
+  state.restockSuggestions = restockSuggestionsResponse ? (await safeJsonPayload(restockSuggestionsResponse)).suggestions || [] : [];
+  state.users = usersResponse ? (await safeJsonPayload(usersResponse)).users || [] : [];
+}
+
+async function safeJsonPayload(response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return {};
+  return response.json();
+}
+
+function bindEvents() {
+  els.navItems.forEach((item) => {
+    item.addEventListener("click", () => switchPanel(item.dataset.panel));
+  });
+
+  document.querySelector("#openProductModal").addEventListener("click", () => openModal());
+  document.querySelector("#logoutButton").addEventListener("click", logout);
+  document.querySelector("#closeProductModal").addEventListener("click", closeModal);
+  document.querySelector("#cancelProduct").addEventListener("click", closeModal);
+  document.querySelector("#closeQuickProductModal").addEventListener("click", closeQuickProductModal);
+  document.querySelector("#closeExitModal").addEventListener("click", closeExitModal);
+  document.querySelector("#cancelExit").addEventListener("click", closeExitModal);
+  document.querySelector("#themeToggle").addEventListener("click", toggleTheme);
+  document.querySelector("#exportData").addEventListener("click", downloadBackup);
+  document.querySelector("#downloadBackup").addEventListener("click", downloadBackup);
+  document.querySelector("#resetDemo").addEventListener("click", resetDemo);
+  document.querySelector("#clearMovements").addEventListener("click", clearMovements);
+  document.querySelector("#restockAll").addEventListener("click", restockSuggested);
+  document.querySelector("#loadIncomeReport").addEventListener("click", loadIncomeReport);
+  document.querySelector("#downloadIncomeReport").addEventListener("click", downloadIncomeReport);
+  document.querySelector("#loadExitReport").addEventListener("click", loadExitReport);
+  document.querySelector("#downloadExitReport").addEventListener("click", downloadExitReport);
+  document.querySelector("#clearExitRegisterForm").addEventListener("click", resetExitRegisterForm);
+  document.querySelector("#loadComparisonReport").addEventListener("click", loadComparisonReport);
+  document.querySelector("#downloadComparisonReport").addEventListener("click", downloadComparisonReport);
+  document.querySelector("#loadPurchaseReport").addEventListener("click", loadPurchaseReport);
+  document.querySelector("#downloadPurchaseReport").addEventListener("click", downloadPurchaseReport);
+  document.querySelector("#clearPurchaseForm").addEventListener("click", resetPurchaseForm);
+  document.querySelector("#loadProfitReport").addEventListener("click", loadProfitReport);
+  document.querySelector("#downloadProfitReport").addEventListener("click", downloadProfitReport);
+  document.querySelector("#importFile").addEventListener("change", importBackup);
+  els.changePasswordForm.addEventListener("submit", changePassword);
+  els.resetUserPasswordForm.addEventListener("submit", resetUserPassword);
+
+  els.categoryFilter.addEventListener("change", () => {
+    renderSubcategoryFilter();
+    renderProducts();
+  });
+  els.subcategoryFilter.addEventListener("change", renderProducts);
+  els.stockFilter.addEventListener("change", renderProducts);
+  els.movementTypeFilter.addEventListener("change", renderMovements);
+  els.form.addEventListener("submit", saveProductFromForm);
+  els.exitForm.addEventListener("submit", saveDetailedExit);
+  els.exitRegisterForm.addEventListener("submit", saveExitFromSection);
+  els.exitMovementType.addEventListener("change", () => {
+    els.exitNote.value = exitTypeNotes[els.exitMovementType.value] || "Uso en cocina";
+  });
+  els.exitRegisterMovementType.addEventListener("change", () => {
+    els.exitRegisterNote.value = exitTypeNotes[els.exitRegisterMovementType.value] || "Uso en cocina";
+  });
+  els.exitCategory.addEventListener("change", () => {
+    renderExitOptions();
+    fillExitRegisterDefaults();
+  });
+  els.exitProductSearch.addEventListener("input", syncExitProductFromSearch);
+  els.exitProductSearch.addEventListener("change", syncExitProductFromSearch);
+  els.purchaseCategory.addEventListener("change", () => {
+    renderPurchaseOptions();
+    fillPurchaseDefaults();
+  });
+  els.purchaseForm.addEventListener("submit", savePurchaseFromForm);
+  els.purchaseProduct.addEventListener("change", fillPurchaseDefaults);
+  els.purchaseReportCategory.addEventListener("change", () => {
+    renderPurchaseReportProductFilter();
+    loadPurchaseReport();
+  });
+  els.purchaseReportProduct.addEventListener("change", loadPurchaseReport);
+  els.purchaseQuantity.addEventListener("input", updatePurchaseTotal);
+  els.purchaseUnitCost.addEventListener("input", updatePurchaseTotal);
+  els.modal.addEventListener("click", (event) => {
+    if (event.target === els.modal) closeModal();
+  });
+  els.quickModal.addEventListener("click", (event) => {
+    if (event.target === els.quickModal) closeQuickProductModal();
+  });
+  els.exitModal.addEventListener("click", (event) => {
+    if (event.target === els.exitModal) closeExitModal();
+  });
+}
+
+async function logout() {
+  await window.Auth.logout();
+  closeModal();
+  closeQuickProductModal();
+  closeExitModal();
+  window.location.href = "login.html";
+}
+
+async function changePassword(event) {
+  event.preventDefault();
+
+  const currentPassword = els.currentPassword.value;
+  const newPassword = els.newPassword.value;
+  const confirmPassword = els.confirmPassword.value;
+
+  if (newPassword.length < 6) {
+    showToast("La nueva contrasena debe tener al menos 6 caracteres.");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    showToast("La confirmacion no coincide con la nueva contrasena.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch("/api/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo cambiar la contrasena.");
+    return;
+  }
+
+  els.changePasswordForm.reset();
+  showToast("Contrasena actualizada.");
+}
+
+async function resetUserPassword(event) {
+  event.preventDefault();
+  if (!requireAdmin()) return;
+
+  const userId = els.resetPasswordUser.value;
+  const newPassword = els.resetPasswordValue.value;
+  const confirmPassword = els.resetPasswordConfirm.value;
+  const user = state.users.find((item) => item.id === userId);
+
+  if (!user) {
+    showToast("Selecciona un usuario.");
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    showToast("La contrasena temporal debe tener al menos 6 caracteres.");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    showToast("La confirmacion no coincide con la contrasena temporal.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/users/${encodeURIComponent(userId)}/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ newPassword })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo restablecer la contrasena.");
+    return;
+  }
+
+  els.resetUserPasswordForm.reset();
+  renderResetPasswordUsers();
+  showToast(`Contrasena temporal asignada a ${user.name}.`);
+}
+
+function renderSession() {
+  currentUser = window.Auth.getCurrentUser();
+  if (!currentUser) {
+    window.location.replace("login.html");
+    return;
+  }
+
+  els.currentUserName.textContent = currentUser?.name || "Sin sesion";
+  els.currentUserRole.textContent = currentUser?.label || "Bloqueado";
+  if (els.adminAlertSection) {
+    els.adminAlertSection.hidden = !isAdmin();
+  }
+  if (els.adminPasswordResetCard) {
+    els.adminPasswordResetCard.hidden = !isAdmin();
+  }
+  const productButton = document.querySelector("#openProductModal");
+  if (productButton) {
+    productButton.hidden = !isAdmin();
+    productButton.disabled = !isAdmin();
+  }
+  document.querySelectorAll("[data-admin-only]").forEach((node) => {
+    node.disabled = !isAdmin();
+  });
+
+  const adminControls = [
+    "#restockAll",
+    "#exportData",
+    "#downloadBackup",
+    "#resetDemo",
+    "#clearMovements",
+    "#loadIncomeReport",
+    "#downloadIncomeReport",
+    "#loadProfitReport",
+    "#downloadProfitReport",
+    "#reportStart",
+    "#reportEnd",
+    "#profitStart",
+    "#profitEnd",
+    "#importFile",
+    "#resetPasswordUser",
+    "#resetPasswordValue",
+    "#resetPasswordConfirm",
+    "#resetUserPasswordButton"
+  ];
+  adminControls.forEach((selector) => {
+    const node = document.querySelector(selector);
+    if (node) node.disabled = !isAdmin();
+  });
+
+  const stockControls = [
+    "#purchaseProduct",
+    "#purchaseSupplier",
+    "#purchaseQuantity",
+    "#purchaseUnitCost",
+    "#purchaseNote",
+    "#clearPurchaseForm",
+    "#savePurchase",
+    "#loadPurchaseReport",
+    "#downloadPurchaseReport",
+    "#loadExitReport",
+    "#downloadExitReport",
+    "#loadComparisonReport",
+    "#downloadComparisonReport",
+    "#exitCategory",
+    "#exitProductSearch",
+    "#exitProduct",
+    "#exitRegisterMovementType",
+    "#exitRegisterQuantity",
+    "#exitRegisterNote",
+    "#clearExitRegisterForm",
+    "#saveExitRegister",
+    "#exitStart",
+    "#exitEnd",
+    "#comparisonStart",
+    "#comparisonEnd",
+    "#purchaseStart",
+    "#purchaseEnd",
+    "#purchaseCategory",
+    "#purchaseReportCategory",
+    "#purchaseReportProduct"
+  ];
+  stockControls.forEach((selector) => {
+    const node = document.querySelector(selector);
+    if (node) node.disabled = !canManageStock();
+  });
+}
+
+function renderResetPasswordUsers() {
+  if (!els.resetPasswordUser) return;
+
+  const current = els.resetPasswordUser.value;
+  els.resetPasswordUser.innerHTML = "";
+
+  if (!isAdmin()) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Solo administradores";
+    els.resetPasswordUser.append(option);
+    return;
+  }
+
+  const users = [...state.users].sort((a, b) => {
+    const roleOrder = a.role.localeCompare(b.role);
+    if (roleOrder !== 0) return roleOrder;
+    return a.name.localeCompare(b.name);
+  });
+
+  users.forEach((user) => {
+    const option = document.createElement("option");
+    option.value = user.id;
+    option.textContent = `${user.name} - ${user.username} (${user.label})`;
+    els.resetPasswordUser.append(option);
+  });
+
+  if (users.some((user) => user.id === current)) {
+    els.resetPasswordUser.value = current;
+  }
+}
+
+function switchPanel(panel) {
+  activePanel = panel;
+  els.panels.forEach((node) => node.classList.toggle("active", node.id === panel));
+  els.navItems.forEach((node) => node.classList.toggle("active", node.dataset.panel === panel));
+  if (panel === "dashboard") animateChart();
+  if (panel === "entries" && canManageStock() && !state.purchaseReport) loadPurchaseReport();
+  if (panel === "reports" && isAdmin() && !state.incomeReport) loadIncomeReport();
+  if (panel === "exits" && canManageStock() && !state.exitReport) loadExitReport();
+  if (panel === "comparison" && canManageStock() && !state.comparisonReport) loadComparisonReport();
+  if (panel === "profit" && isAdmin() && !state.profitReport) loadProfitReport();
+}
+
+function isAdmin() {
+  return currentUser?.role === "admin";
+}
+
+function canManageStock() {
+  return ["admin", "staff"].includes(currentUser?.role);
+}
+
+function requireLogin() {
+  if (currentUser) return true;
+  showToast("Inicia sesion para usar el sistema.");
+  renderSession();
+  return false;
+}
+
+function requireAdmin() {
+  if (isAdmin()) return true;
+  showToast("Solo admin puede administrar productos.");
+  return false;
+}
+
+function requireStockAccess() {
+  if (canManageStock()) return true;
+  showToast("Tu usuario no puede registrar movimientos de inventario.");
+  return false;
+}
+
+function render() {
+  renderMetrics();
+  renderCategoryFilter();
+  renderSubcategoryFilter();
+  renderProducts();
+  renderAlerts();
+  renderRestockSuggestions();
+  renderAdminAlerts();
+  renderMovementTypeFilter();
+  renderMovements();
+  renderPurchaseOptions();
+  renderExitOptions();
+  renderPurchaseReport();
+  renderIncomeReport();
+  renderExitReport();
+  renderComparisonReport();
+  renderProfitReport();
+  renderResetPasswordUsers();
+  animateChart();
+  renderSession();
+}
+
+function filteredProducts() {
+  const category = els.categoryFilter.value;
+  const subcategory = els.subcategoryFilter.value;
+  const stock = els.stockFilter.value;
+
+  return state.products.filter((product) => {
+    const categoryMatch = category === "all" || product.category === category;
+    const subcategoryMatch = subcategory === "all" || product.subcategory === subcategory;
+    const statusMatch = stock === "all" || getStockStatus(product).key === stock;
+    return categoryMatch && subcategoryMatch && statusMatch;
+  });
+}
+
+function renderMetrics() {
+  const products = state.products;
+  const totalUnits = products.reduce((sum, product) => sum + Number(product.stock), 0);
+  const totalValue = products.reduce((sum, product) => sum + Number(product.stock) * Number(product.price), 0);
+  const categories = new Set(products.map((product) => product.category));
+  const lowStock = products.filter((product) => product.stock <= product.minStock).length;
+
+  document.querySelector("#metricProducts").textContent = products.length;
+  document.querySelector("#metricUnits").textContent = totalUnits;
+  document.querySelector("#metricValue").textContent = formatter.format(totalValue);
+  document.querySelector("#metricLowStock").textContent = lowStock;
+  document.querySelector("#metricProductsHint").textContent = `${categories.size} categorias activas`;
+}
+
+function renderCategoryFilter() {
+  const current = els.categoryFilter.value;
+  const categories = [...new Set(state.products.map((product) => product.category))].sort();
+  els.categoryFilter.innerHTML = `<option value="all">Todas las categorias</option>`;
+  categories.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    els.categoryFilter.append(option);
+  });
+  els.categoryFilter.value = categories.includes(current) ? current : "all";
+}
+
+function renderSubcategoryFilter() {
+  const current = els.subcategoryFilter.value;
+  const selectedCategory = els.categoryFilter.value;
+  const subcategories = [
+    ...new Set(
+      state.products
+        .filter((product) => selectedCategory === "all" || product.category === selectedCategory)
+        .map((product) => product.subcategory)
+        .filter(Boolean)
+    )
+  ].sort();
+  els.subcategoryFilter.innerHTML = `<option value="all">Todas las subcategorias</option>`;
+  subcategories.forEach((subcategory) => {
+    const option = document.createElement("option");
+    option.value = subcategory;
+    option.textContent = subcategory;
+    els.subcategoryFilter.append(option);
+  });
+  els.subcategoryFilter.value = subcategories.includes(current) ? current : "all";
+}
+
+function renderProducts() {
+  const products = filteredProducts();
+  els.productRows.innerHTML = "";
+
+  if (!products.length) {
+    els.productRows.innerHTML = `
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">No hay productos que coincidan con los filtros.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  products.forEach((product) => {
+    const status = getStockStatus(product);
+    const stockCell = isAdmin()
+      ? `
+        <div class="stock-control">
+          <button type="button" title="Uso rapido" data-action="adjust" data-id="${product.id}" data-amount="-1">−</button>
+          <strong>${product.stock}</strong>
+          <button type="button" title="Entrada" data-action="adjust" data-id="${product.id}" data-amount="1">+</button>
+        </div>`
+      : `<strong>${product.stock}</strong>`;
+    const actionsCell = isAdmin()
+      ? `
+        <div class="row-actions">
+          <button type="button" title="Ficha rapida" data-action="quick-view" data-id="${product.id}">Ficha</button>
+          <button type="button" title="Uso detallado" data-action="detailed-exit" data-id="${product.id}">Uso</button>
+          <button type="button" title="Editar" data-action="edit" data-id="${product.id}">✎</button>
+          <button type="button" title="Eliminar" data-action="delete" data-id="${product.id}">×</button>
+        </div>`
+      : canManageStock()
+      ? `
+        <div class="row-actions">
+          <button type="button" title="Ficha rapida" data-action="quick-view" data-id="${product.id}">Ficha</button>
+          <button type="button" title="Uso detallado" data-action="detailed-exit" data-id="${product.id}">Uso</button>
+          <button type="button" title="Avisar agotado" data-action="report-empty" data-id="${product.id}">Avisar agotado</button>
+        </div>`
+      : `
+        <div class="row-actions">
+          <button type="button" title="Ficha rapida" data-action="quick-view" data-id="${product.id}">Ficha</button>
+          <button type="button" title="Avisar agotado" data-action="report-empty" data-id="${product.id}">Avisar agotado</button>
+        </div>`;
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td data-label="Producto">
+        <div class="product-cell">
+          <span class="product-avatar">${initials(product.name)}</span>
+          <div>
+            <strong>${escapeHtml(product.name)}</strong>
+            <small>${escapeHtml(product.sku || "Sin codigo")}</small>
+          </div>
+        </div>
+      </td>
+      <td data-label="Cantidad">${stockCell}</td>
+      <td data-label="Descripcion">${escapeHtml(product.description || "Sin descripcion")}</td>
+      <td data-label="Categoria"><strong>${escapeHtml(product.category)}</strong></td>
+      <td data-label="Subcategoria">${escapeHtml(product.subcategory || "Sin subcategoria")}</td>
+      <td data-label="Precio">${formatter.format(product.price)}</td>
+      <td data-label="Estado"><span class="badge ${status.key}">${status.label}</span></td>
+      <td data-label="Acciones">${actionsCell}</td>
+    `;
+    els.productRows.append(row);
+  });
+
+  els.productRows.querySelectorAll("button").forEach((button) => {
+    button.addEventListener("click", handleRowAction);
+  });
+}
+
+function renderAlerts() {
+  const smartAlerts = isAdmin() ? state.smartAlerts : [];
+
+  els.alertList.innerHTML = "";
+  if (els.smartAlertCount) {
+    els.smartAlertCount.textContent = `${smartAlerts.length} alertas`;
+  }
+
+  if (smartAlerts.length) {
+    smartAlerts.slice(0, 8).forEach((alert) => {
+      const item = document.createElement("article");
+      item.className = "alert-item";
+      item.innerHTML = `
+        <div>
+          <strong>${escapeHtml(alert.productName)} <span class="badge ${smartAlertBadge(alert.severity)}">${escapeHtml(alert.label)}</span></strong>
+          <small>${escapeHtml(alert.sku)} · ${escapeHtml(formatCategoryPath(alert))} · ${escapeHtml(alert.message)}</small>
+        </div>
+        <span class="badge ${alert.severity === "critical" ? "out" : alert.severity === "high" ? "low" : "ok"}">${alert.stock}/${alert.minStock}</span>
+      `;
+      els.alertList.append(item);
+    });
+    return;
+  }
+
+  const products = state.products
+    .filter((product) => product.stock <= product.minStock)
+    .sort((a, b) => a.stock - b.stock);
+
+  if (!products.length) {
+    els.alertList.innerHTML = `<div class="empty-state">Sin alertas por ahora.</div>`;
+    return;
+  }
+
+  products.slice(0, 6).forEach((product) => {
+    const missing = Math.max(product.minStock * 2 - product.stock, 1);
+    const item = document.createElement("article");
+    item.className = "alert-item";
+    item.innerHTML = `
+      <div>
+        <strong>${escapeHtml(product.name)}</strong>
+        <small>${escapeHtml(product.sku)} · ${escapeHtml(formatCategoryPath(product))} · faltan ${missing} sugeridos</small>
+      </div>
+      <span class="badge ${getStockStatus(product).key}">${product.stock}/${product.minStock}</span>
+    `;
+    els.alertList.append(item);
+  });
+}
+
+function renderRestockSuggestions() {
+  if (!els.restockSuggestionList) return;
+
+  const suggestions = isAdmin() ? state.restockSuggestions : [];
+  els.restockSuggestionList.innerHTML = "";
+
+  if (els.restockSuggestionCount) {
+    const units = suggestions.reduce((sum, item) => sum + Number(item.suggestedQuantity || 0), 0);
+    els.restockSuggestionCount.textContent = `${suggestions.length} productos · +${units}`;
+  }
+
+  if (!isAdmin()) {
+    els.restockSuggestionList.innerHTML = `<div class="empty-state">Solo admin puede aplicar reposiciones sugeridas.</div>`;
+    return;
+  }
+
+  if (!suggestions.length) {
+    els.restockSuggestionList.innerHTML = `<div class="empty-state">No hay productos que necesiten reposicion automatica.</div>`;
+    return;
+  }
+
+  suggestions.slice(0, 8).forEach((suggestion) => {
+    const item = document.createElement("article");
+    item.className = "alert-item restock-item";
+    item.innerHTML = `
+      <div>
+        <strong>${escapeHtml(suggestion.productName)} <span class="badge low">${escapeHtml(suggestion.reason)}</span></strong>
+        <small>${escapeHtml(suggestion.sku)} · ${escapeHtml(formatCategoryPath(suggestion))} · stock ${suggestion.stock}/${suggestion.minStock} → ${suggestion.targetStock}</small>
+      </div>
+      <span class="badge ok">+${suggestion.suggestedQuantity}</span>
+    `;
+    els.restockSuggestionList.append(item);
+  });
+}
+
+function renderAdminAlerts() {
+  if (!els.adminAlertSection || !isAdmin()) return;
+
+  const alerts = state.stockAlerts.filter((alert) => alert.status === "open");
+  els.adminAlertCount.textContent = `${alerts.length} abiertos`;
+  els.adminAlertList.innerHTML = "";
+
+  if (!alerts.length) {
+    els.adminAlertList.innerHTML = `<div class="empty-state">No hay avisos pendientes de usuarios.</div>`;
+    return;
+  }
+
+  alerts.forEach((alert) => {
+    const item = document.createElement("article");
+    item.className = "alert-item";
+    item.innerHTML = `
+      <div>
+        <strong>${escapeHtml(alert.productName)}</strong>
+        <small>${escapeHtml(alert.message)} · ${escapeHtml(alert.createdByName || "Usuario")} · ${formatDate(alert.createdAt)}</small>
+      </div>
+      <button class="ghost-button" type="button" data-action="resolve-alert" data-id="${alert.id}">Marcar atendido</button>
+    `;
+    els.adminAlertList.append(item);
+  });
+
+  els.adminAlertList.querySelectorAll("button").forEach((button) => {
+    button.addEventListener("click", resolveStockAlert);
+  });
+}
+
+async function resolveStockAlert(event) {
+  if (!requireAdmin()) return;
+  const id = event.currentTarget.dataset.id;
+  const response = await window.Auth.apiFetch(`/api/stock-alerts/${id}/resolve`, { method: "PATCH" });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo atender el aviso.");
+    return;
+  }
+  await loadRemoteData();
+  render();
+  showToast("Aviso marcado como atendido.");
+}
+
+function renderMovementTypeFilter() {
+  if (!els.movementTypeFilter) return;
+  const current = els.movementTypeFilter.value;
+  const types = [...new Set(state.movements.map((movement) => movement.movementType).filter(Boolean))].sort();
+  els.movementTypeFilter.innerHTML = `<option value="all">Todos los tipos</option>`;
+  types.forEach((type) => {
+    const option = document.createElement("option");
+    option.value = type;
+    option.textContent = movementTypeLabels[type] || type;
+    els.movementTypeFilter.append(option);
+  });
+  els.movementTypeFilter.value = types.includes(current) ? current : "all";
+}
+
+function renderMovements() {
+  els.movementTimeline.innerHTML = "";
+  const typeFilter = els.movementTypeFilter?.value || "all";
+  const movements = [...state.movements]
+    .filter((movement) => typeFilter === "all" || movement.movementType === typeFilter)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  if (!movements.length) {
+    els.movementTimeline.innerHTML = `<div class="empty-state">No hay movimientos para este filtro.</div>`;
+    return;
+  }
+
+  movements.slice(0, 60).forEach((movement) => {
+    const item = document.createElement("article");
+    item.className = "timeline-item";
+    const sign = movement.quantity > 0 ? "+" : "";
+    const valueText = movement.totalValue !== null ? ` · valor ${formatter.format(movement.totalValue)}` : "";
+    const costText = movement.totalCost !== null ? ` · costo ${formatter.format(movement.totalCost)}` : "";
+    item.innerHTML = `
+      <div>
+        <strong>
+          ${escapeHtml(movement.productName)}
+          <span class="badge ${movement.quantity > 0 ? "ok" : "low"}">${sign}${movement.quantity}</span>
+          <span class="badge movement-type">${escapeHtml(movement.movementTypeLabel || "Movimiento")}</span>
+        </strong>
+        <small>${escapeHtml(movement.sku)} · ${escapeHtml(movement.note)} · ${formatDate(movement.createdAt)}${valueText}${costText}</small>
+      </div>
+    `;
+    els.movementTimeline.append(item);
+  });
+}
+
+function setDefaultReportDates() {
+  const now = new Date();
+  const today = formatDateInput(now);
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const firstDayValue = formatDateInput(firstDay);
+  if (els.reportStart && els.reportEnd) {
+    els.reportStart.value = firstDayValue;
+    els.reportEnd.value = today;
+  }
+  if (els.exitStart && els.exitEnd) {
+    els.exitStart.value = firstDayValue;
+    els.exitEnd.value = today;
+  }
+  if (els.comparisonStart && els.comparisonEnd) {
+    els.comparisonStart.value = firstDayValue;
+    els.comparisonEnd.value = today;
+  }
+  if (els.purchaseStart && els.purchaseEnd) {
+    els.purchaseStart.value = firstDayValue;
+    els.purchaseEnd.value = today;
+  }
+  if (els.profitStart && els.profitEnd) {
+    els.profitStart.value = firstDayValue;
+    els.profitEnd.value = today;
+  }
+}
+
+function reportQueryString() {
+  const params = new URLSearchParams({
+    from: els.reportStart.value,
+    to: els.reportEnd.value
+  });
+  return params.toString();
+}
+
+function exitQueryString() {
+  const params = new URLSearchParams({
+    from: els.exitStart.value,
+    to: els.exitEnd.value
+  });
+  return params.toString();
+}
+
+function comparisonQueryString() {
+  const params = new URLSearchParams({
+    from: els.comparisonStart.value,
+    to: els.comparisonEnd.value
+  });
+  return params.toString();
+}
+
+function purchaseQueryString() {
+  const params = new URLSearchParams({
+    from: els.purchaseStart.value,
+    to: els.purchaseEnd.value
+  });
+  if (els.purchaseReportCategory?.value && els.purchaseReportCategory.value !== "all") {
+    params.set("category", els.purchaseReportCategory.value);
+  }
+  if (els.purchaseReportProduct?.value && els.purchaseReportProduct.value !== "all") {
+    params.set("productId", els.purchaseReportProduct.value);
+  }
+  return params.toString();
+}
+
+function profitQueryString() {
+  const params = new URLSearchParams({
+    from: els.profitStart.value,
+    to: els.profitEnd.value
+  });
+  return params.toString();
+}
+
+function renderPurchaseOptions() {
+  if (!els.purchaseProduct) return;
+  const selected = els.purchaseProduct.value;
+  renderPurchaseCategoryOptions();
+  renderPurchaseReportCategoryOptions();
+
+  const selectedCategory = els.purchaseCategory.value;
+  const products = [...state.products]
+    .filter((product) => selectedCategory === "all" || product.category === selectedCategory)
+    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+
+  els.purchaseProduct.innerHTML = `<option value="">Selecciona producto</option>`;
+  products.forEach((product) => {
+    const option = document.createElement("option");
+    option.value = product.id;
+    option.textContent = `${product.name} (${formatUnits(product.stock)})`;
+    els.purchaseProduct.append(option);
+  });
+
+  if (products.some((product) => product.id === selected)) {
+    els.purchaseProduct.value = selected;
+  } else {
+    els.purchaseProduct.value = "";
+  }
+
+  const suppliers = new Set();
+  state.products.forEach((product) => {
+    if (product.supplier) suppliers.add(product.supplier);
+  });
+  state.purchaseReport?.rows?.forEach((purchase) => {
+    if (purchase.supplier) suppliers.add(purchase.supplier);
+  });
+
+  els.supplierOptions.innerHTML = "";
+  [...suppliers].sort((a, b) => a.localeCompare(b, "es")).forEach((supplier) => {
+    const option = document.createElement("option");
+    option.value = supplier;
+    els.supplierOptions.append(option);
+  });
+  renderPurchaseReportProductFilter();
+}
+
+function renderPurchaseCategoryOptions() {
+  if (!els.purchaseCategory) return;
+  const current = els.purchaseCategory.value || "all";
+  const categories = [...new Set(state.products.map((product) => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  els.purchaseCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
+  categories.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    els.purchaseCategory.append(option);
+  });
+  els.purchaseCategory.value = categories.includes(current) ? current : "all";
+}
+
+function renderPurchaseReportCategoryOptions() {
+  if (!els.purchaseReportCategory) return;
+  const current = els.purchaseReportCategory.value || "all";
+  const categories = [...new Set(state.products.map((product) => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  els.purchaseReportCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
+  categories.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    els.purchaseReportCategory.append(option);
+  });
+  els.purchaseReportCategory.value = categories.includes(current) ? current : "all";
+}
+
+function renderPurchaseReportProductFilter() {
+  if (!els.purchaseReportProduct) return;
+  const current = els.purchaseReportProduct.value || "all";
+  const selectedCategory = els.purchaseReportCategory.value || "all";
+  const products = [...state.products]
+    .filter((product) => selectedCategory === "all" || product.category === selectedCategory)
+    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+
+  els.purchaseReportProduct.innerHTML = `<option value="all">Todos los productos</option>`;
+  products.forEach((product) => {
+    const option = document.createElement("option");
+    option.value = product.id;
+    option.textContent = `${product.name} · ${product.sku}`;
+    els.purchaseReportProduct.append(option);
+  });
+  els.purchaseReportProduct.value = products.some((product) => product.id === current) ? current : "all";
+}
+
+function fillPurchaseDefaults() {
+  const product = state.products.find((item) => item.id === els.purchaseProduct.value);
+  if (!product) {
+    updatePurchaseTotal();
+    return;
+  }
+
+  els.purchaseSupplier.value = product.supplier || els.purchaseSupplier.value;
+  els.purchaseUnitCost.value = Number(product.cost || 0).toFixed(2);
+  if (!els.purchaseQuantity.value) els.purchaseQuantity.value = 1;
+  updatePurchaseTotal();
+}
+
+function updatePurchaseTotal() {
+  if (!els.purchaseTotal) return;
+  const quantity = Number(els.purchaseQuantity.value || 0);
+  const unitCost = Number(els.purchaseUnitCost.value || 0);
+  const total = Number.isFinite(quantity) && Number.isFinite(unitCost) ? quantity * unitCost : 0;
+  els.purchaseTotal.textContent = formatter.format(Math.max(total, 0));
+}
+
+function renderExitOptions() {
+  if (!els.exitProductOptions) return;
+  const selected = els.exitProduct.value;
+  renderExitCategoryOptions();
+
+  const selectedCategory = els.exitCategory.value;
+  const products = [...state.products]
+    .filter((product) => Number(product.stock) > 0)
+    .filter((product) => selectedCategory === "all" || product.category === selectedCategory)
+    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+
+  els.exitProductOptions.innerHTML = "";
+  products.forEach((product) => {
+    const option = document.createElement("option");
+    option.value = exitProductOptionLabel(product);
+    option.dataset.id = product.id;
+    els.exitProductOptions.append(option);
+  });
+
+  if (products.some((product) => product.id === selected)) {
+    const product = products.find((item) => item.id === selected);
+    els.exitProductSearch.value = exitProductOptionLabel(product);
+  } else {
+    els.exitProduct.value = "";
+    els.exitProductSearch.value = "";
+  }
+  fillExitRegisterDefaults();
+}
+
+function renderExitCategoryOptions() {
+  if (!els.exitCategory) return;
+  const current = els.exitCategory.value || "all";
+  const categories = [...new Set(state.products.map((product) => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  els.exitCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
+  categories.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    els.exitCategory.append(option);
+  });
+  els.exitCategory.value = categories.includes(current) ? current : "all";
+}
+
+function exitProductOptionLabel(product) {
+  const category = formatCategoryPath(product);
+  return `${product.name} · ${product.sku} · ${category} · ${formatUnits(product.stock)}`;
+}
+
+function syncExitProductFromSearch() {
+  const query = els.exitProductSearch.value.trim().toLowerCase();
+  const selectedCategory = els.exitCategory.value;
+  const exactProduct = state.products.find((product) => (
+    Number(product.stock) > 0
+      && (selectedCategory === "all" || product.category === selectedCategory)
+      && exitProductOptionLabel(product).toLowerCase() === query
+  ));
+
+  if (exactProduct) {
+    els.exitProduct.value = exactProduct.id;
+  } else {
+    els.exitProduct.value = "";
+  }
+
+  fillExitRegisterDefaults();
+}
+
+function fillExitRegisterDefaults() {
+  const product = state.products.find((item) => item.id === els.exitProduct.value);
+  els.exitStockPreview.textContent = product ? formatUnits(product.stock) : "-";
+  if (!els.exitRegisterQuantity.value) els.exitRegisterQuantity.value = product ? 1 : "";
+  if (!els.exitRegisterNote.value) els.exitRegisterNote.value = exitTypeNotes[els.exitRegisterMovementType.value] || "Uso en cocina";
+  if (product) {
+    els.exitRegisterQuantity.max = String(product.stock);
+  } else {
+    els.exitRegisterQuantity.removeAttribute("max");
+  }
+}
+
+function resetExitRegisterForm() {
+  els.exitRegisterForm.reset();
+  els.exitCategory.value = "all";
+  renderExitOptions();
+  fillExitRegisterDefaults();
+}
+
+function resetPurchaseForm() {
+  els.purchaseForm.reset();
+  els.purchaseCategory.value = "all";
+  renderPurchaseOptions();
+  updatePurchaseTotal();
+}
+
+async function loadPurchaseReport() {
+  if (!requireStockAccess()) return;
+  if (!els.purchaseStart.value || !els.purchaseEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/purchases?${purchaseQueryString()}`);
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudieron cargar las compras.");
+    return;
+  }
+
+  state.purchaseReport = payload;
+  renderPurchaseOptions();
+  renderPurchaseReport();
+}
+
+function renderPurchaseReport() {
+  if (!els.purchaseRows) return;
+  const report = state.purchaseReport;
+  const summary = report?.summary || { totalCost: 0, totalUnits: 0, totalEntries: 0, totalSuppliers: 0 };
+
+  els.purchaseTotalCost.textContent = formatter.format(summary.totalCost || 0);
+  els.purchaseUnits.textContent = summary.totalUnits || 0;
+  els.purchaseEntries.textContent = summary.totalEntries || 0;
+  els.purchaseSuppliers.textContent = summary.totalSuppliers || 0;
+  els.purchaseRows.innerHTML = "";
+
+  if (!canManageStock()) {
+    els.purchaseRows.innerHTML = `
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">Tu usuario no puede registrar ni consultar entradas.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report) {
+    els.purchaseRows.innerHTML = `
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">Genera un reporte para ver las compras del periodo.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report.rows.length) {
+    els.purchaseRows.innerHTML = `
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">No hay compras registradas en este rango de fechas.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  report.rows.forEach((purchase) => {
+    const row = document.createElement("tr");
+    row.className = "mobile-collapsible-row";
+    row.innerHTML = `
+      <td class="mobile-row-summary" colspan="8">
+        <button class="mobile-row-toggle" type="button" data-action="toggle-purchase-row" aria-expanded="false" aria-label="Ver detalle de ${escapeHtml(purchase.productName)}">
+          <span>
+            <strong>${escapeHtml(purchase.productName)}</strong>
+            <small>${formatDate(purchase.createdAt)} · ${escapeHtml(purchase.supplier)}</small>
+          </span>
+          <span class="mobile-row-total">
+            <strong>${formatter.format(purchase.totalCost)}</strong>
+            <small>${formatUnits(purchase.quantity)}</small>
+          </span>
+          <span class="mobile-row-chevron" aria-hidden="true">⌄</span>
+        </button>
+      </td>
+      <td data-label="Fecha">${formatDate(purchase.createdAt)}</td>
+      <td data-label="Producto">${escapeHtml(purchase.productName)}</td>
+      <td data-label="Categoria">${escapeHtml(formatCategoryPath(purchase))}</td>
+      <td data-label="Proveedor">${escapeHtml(purchase.supplier)}</td>
+      <td data-label="Cantidad">${purchase.quantity}</td>
+      <td data-label="Costo">${formatter.format(purchase.unitCost)}</td>
+      <td data-label="Total">${formatter.format(purchase.totalCost)}</td>
+      <td data-label="Usuario">${escapeHtml(purchase.createdByName)}</td>
+    `;
+    els.purchaseRows.append(row);
+  });
+
+  els.purchaseRows.querySelectorAll("[data-action='toggle-purchase-row']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest("tr");
+      const expanded = row.classList.toggle("expanded");
+      button.setAttribute("aria-expanded", String(expanded));
+    });
+  });
+}
+
+async function savePurchaseFromForm(event) {
+  event.preventDefault();
+  if (!requireStockAccess()) return;
+
+  const formData = new FormData(els.purchaseForm);
+  const purchase = {
+    productId: formData.get("productId"),
+    supplier: formData.get("supplier").trim(),
+    quantity: Number(formData.get("quantity")),
+    unitCost: Number(formData.get("unitCost")),
+    note: formData.get("note").trim()
+  };
+
+  if (!purchase.productId || !purchase.supplier || !Number.isInteger(purchase.quantity) || purchase.quantity <= 0) {
+    showToast("Selecciona producto, proveedor y cantidad valida.");
+    return;
+  }
+
+  if (!Number.isFinite(purchase.unitCost) || purchase.unitCost < 0) {
+    showToast("Captura un costo unitario valido.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch("/api/purchases", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(purchase)
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo registrar la compra.");
+    return;
+  }
+
+  resetPurchaseForm();
+  await loadRemoteData();
+  await loadPurchaseReport();
+  state.incomeReport = null;
+  state.exitReport = null;
+  state.comparisonReport = null;
+  render();
+  showToast("Entrada registrada y stock actualizado.");
+}
+
+async function downloadPurchaseReport() {
+  if (!requireStockAccess()) return;
+  if (!els.purchaseStart.value || !els.purchaseEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/purchases.xlsx?${purchaseQueryString()}`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    showToast(payload.error || "No se pudo descargar el reporte de compras.");
+    return;
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `reporte-compras-${els.purchaseStart.value}-a-${els.purchaseEnd.value}.xlsx`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  showToast("Reporte de compras descargado.");
+}
+
+async function loadIncomeReport() {
+  if (!requireAdmin()) return;
+  if (!els.reportStart.value || !els.reportEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/reports/income?${reportQueryString()}`);
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo generar el reporte.");
+    return;
+  }
+
+  state.incomeReport = payload;
+  renderIncomeReport();
+}
+
+function renderIncomeReport() {
+  if (!els.incomeReportRows) return;
+  const report = state.incomeReport;
+  const summary = report?.summary || { totalIncome: 0, totalUnits: 0, totalMovements: 0 };
+
+  els.reportIncome.textContent = formatter.format(summary.totalIncome || 0);
+  els.reportUnits.textContent = summary.totalUnits || 0;
+  els.reportMovements.textContent = summary.totalMovements || 0;
+  els.reportRange.textContent = report ? `${report.range.from} / ${report.range.to}` : "-";
+  els.incomeReportRows.innerHTML = "";
+
+  if (!isAdmin()) {
+    els.incomeReportRows.innerHTML = `
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">Solo admin puede consultar reportes de ingresos.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report) {
+    els.incomeReportRows.innerHTML = `
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">Genera un reporte para ver los ingresos del periodo.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report.rows.length) {
+    els.incomeReportRows.innerHTML = `
+      <tr>
+        <td colspan="8">
+          <div class="empty-state">No hay ingresos registrados en este rango de fechas.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  report.rows.forEach((item) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td data-label="Fecha">${formatDate(item.date)}</td>
+      <td data-label="Producto">${escapeHtml(item.productName)}</td>
+      <td data-label="SKU">${escapeHtml(item.sku)}</td>
+      <td data-label="Categoria">${escapeHtml(formatCategoryPath(item))}</td>
+      <td data-label="Cantidad">${item.unitsSold}</td>
+      <td data-label="Precio">${formatter.format(item.unitPrice)}</td>
+      <td data-label="Total">${formatter.format(item.total)}</td>
+      <td data-label="Usuario">${escapeHtml(item.userName)}</td>
+    `;
+    els.incomeReportRows.append(row);
+  });
+}
+
+async function downloadIncomeReport() {
+  if (!requireAdmin()) return;
+  if (!els.reportStart.value || !els.reportEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/reports/income.xlsx?${reportQueryString()}`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    showToast(payload.error || "No se pudo descargar el reporte.");
+    return;
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `reporte-ingresos-${els.reportStart.value}-a-${els.reportEnd.value}.xlsx`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  showToast("Reporte de ingresos descargado.");
+}
+
+async function loadProfitReport() {
+  if (!requireAdmin()) return;
+  if (!els.profitStart.value || !els.profitEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/reports/profit?${profitQueryString()}`);
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo generar el reporte de utilidad.");
+    return;
+  }
+
+  state.profitReport = payload;
+  renderProfitReport();
+}
+
+function renderProfitReport() {
+  if (!els.profitRows) return;
+  const report = state.profitReport;
+  const summary = report?.summary || { totalIncome: 0, totalCost: 0, totalProfit: 0, margin: 0 };
+
+  els.profitIncome.textContent = formatter.format(summary.totalIncome || 0);
+  els.profitCost.textContent = formatter.format(summary.totalCost || 0);
+  els.profitGain.textContent = formatter.format(summary.totalProfit || 0);
+  els.profitMargin.textContent = `${percentFormatter.format(summary.margin || 0)}%`;
+  els.profitRows.innerHTML = "";
+
+  if (!isAdmin()) {
+    els.profitRows.innerHTML = `
+      <tr>
+        <td colspan="10">
+          <div class="empty-state">Solo admin puede consultar reportes de utilidad.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report) {
+    els.profitRows.innerHTML = `
+      <tr>
+        <td colspan="10">
+          <div class="empty-state">Genera un reporte para ver utilidad por producto.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report.rows.length) {
+    els.profitRows.innerHTML = `
+      <tr>
+        <td colspan="10">
+          <div class="empty-state">No hay usos de insumos registrados en este rango de fechas.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  report.rows.forEach((item) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td data-label="Producto">${escapeHtml(item.productName)}</td>
+      <td data-label="SKU">${escapeHtml(item.sku)}</td>
+      <td data-label="Categoria">${escapeHtml(formatCategoryPath(item))}</td>
+      <td data-label="Unidades">${item.unitsSold}</td>
+      <td data-label="Precio prom.">${formatter.format(item.averagePrice)}</td>
+      <td data-label="Costo prom.">${formatter.format(item.averageCost)}</td>
+      <td data-label="Ingreso">${formatter.format(item.income)}</td>
+      <td data-label="Costo">${formatter.format(item.cost)}</td>
+      <td data-label="Ganancia">${formatter.format(item.profit)}</td>
+      <td data-label="Margen">${percentFormatter.format(item.margin)}%</td>
+    `;
+    els.profitRows.append(row);
+  });
+}
+
+async function downloadProfitReport() {
+  if (!requireAdmin()) return;
+  if (!els.profitStart.value || !els.profitEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/reports/profit.xlsx?${profitQueryString()}`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    showToast(payload.error || "No se pudo descargar el reporte de utilidad.");
+    return;
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `reporte-utilidad-${els.profitStart.value}-a-${els.profitEnd.value}.xlsx`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  showToast("Reporte de utilidad descargado.");
+}
+
+async function loadExitReport() {
+  if (!requireStockAccess()) return;
+  if (!els.exitStart.value || !els.exitEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/reports/exits?${exitQueryString()}`);
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudieron cargar los usos de insumos.");
+    return;
+  }
+
+  state.exitReport = payload;
+  renderExitReport();
+}
+
+async function saveExitFromSection(event) {
+  event.preventDefault();
+  if (!requireStockAccess()) return;
+
+  const product = state.products.find((item) => item.id === els.exitProduct.value);
+  const quantity = Number(els.exitRegisterQuantity.value);
+  const movementType = els.exitRegisterMovementType.value;
+  const note = els.exitRegisterNote.value.trim() || exitTypeNotes[movementType] || "Uso en cocina";
+
+  if (!product) {
+    showToast("Selecciona un producto.");
+    return;
+  }
+
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    showToast("Captura una cantidad valida.");
+    return;
+  }
+
+  if (quantity > Number(product.stock)) {
+    showToast("No hay suficiente stock para registrar ese uso.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/products/${product.id}/exit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quantity, movementType, note })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo registrar el uso de insumo.");
+    return;
+  }
+
+  await loadRemoteData();
+  state.exitReport = null;
+  state.incomeReport = null;
+  state.profitReport = null;
+  state.comparisonReport = null;
+  render();
+  resetExitRegisterForm();
+  await loadExitReport();
+  showToast("Uso de insumo registrado.");
+}
+
+function renderExitReport() {
+  if (!els.exitReportRows) return;
+  const report = state.exitReport;
+  const summary = report?.summary || { totalValue: 0, totalUnits: 0, totalMovements: 0 };
+
+  els.exitTotalValue.textContent = formatter.format(summary.totalValue || 0);
+  els.exitUnits.textContent = summary.totalUnits || 0;
+  els.exitMovements.textContent = summary.totalMovements || 0;
+  els.exitRange.textContent = report ? `${report.range.from} / ${report.range.to}` : "-";
+  els.exitReportRows.innerHTML = "";
+
+  if (!canManageStock()) {
+    els.exitReportRows.innerHTML = `
+      <tr>
+        <td colspan="9">
+          <div class="empty-state">Tu usuario no puede consultar usos de insumos.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report) {
+    els.exitReportRows.innerHTML = `
+      <tr>
+        <td colspan="9">
+          <div class="empty-state">Genera un reporte para ver los insumos utilizados del periodo.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report.rows.length) {
+    els.exitReportRows.innerHTML = `
+      <tr>
+        <td colspan="9">
+          <div class="empty-state">No hay usos de insumos registrados en este rango de fechas.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  report.rows.forEach((item) => {
+    const row = document.createElement("tr");
+    row.className = "mobile-collapsible-row";
+    const movementLabel = item.movementTypeLabel || movementTypeLabels[item.movementType] || "Uso en cocina";
+    row.innerHTML = `
+      <td class="mobile-row-summary" colspan="9">
+        <button class="mobile-row-toggle" type="button" data-action="toggle-exit-row" aria-expanded="false" aria-label="Ver detalle de ${escapeHtml(item.productName)}">
+          <span>
+            <strong>${escapeHtml(item.productName)}</strong>
+            <small>${formatDate(item.date)} · ${escapeHtml(movementLabel)}</small>
+          </span>
+          <span class="mobile-row-total">
+            <strong>${formatter.format(item.total)}</strong>
+            <small>${formatUnits(item.unitsOut)}</small>
+          </span>
+          <span class="mobile-row-chevron" aria-hidden="true">⌄</span>
+        </button>
+      </td>
+      <td data-label="Fecha">${formatDate(item.date)}</td>
+      <td data-label="Producto">${escapeHtml(item.productName)}</td>
+      <td data-label="Categoria">${escapeHtml(formatCategoryPath(item))}</td>
+      <td data-label="Tipo">${escapeHtml(movementLabel)}</td>
+      <td data-label="Motivo">${escapeHtml(item.note)}</td>
+      <td data-label="Cantidad">${item.unitsOut}</td>
+      <td data-label="Precio">${formatter.format(item.unitPrice)}</td>
+      <td data-label="Total">${formatter.format(item.total)}</td>
+      <td data-label="Usuario">${escapeHtml(item.userName)}</td>
+    `;
+    els.exitReportRows.append(row);
+  });
+
+  els.exitReportRows.querySelectorAll("[data-action='toggle-exit-row']").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest("tr");
+      const expanded = row.classList.toggle("expanded");
+      button.setAttribute("aria-expanded", String(expanded));
+    });
+  });
+}
+
+async function downloadExitReport() {
+  if (!requireStockAccess()) return;
+  if (!els.exitStart.value || !els.exitEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/reports/exits.xlsx?${exitQueryString()}`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    showToast(payload.error || "No se pudo descargar el reporte de uso de insumos.");
+    return;
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `reporte-uso-insumos-${els.exitStart.value}-a-${els.exitEnd.value}.xlsx`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  showToast("Reporte de uso de insumos descargado.");
+}
+
+async function loadComparisonReport() {
+  if (!requireStockAccess()) return;
+  if (!els.comparisonStart.value || !els.comparisonEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/reports/stock-comparison?${comparisonQueryString()}`);
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo generar la comparativa.");
+    return;
+  }
+
+  state.comparisonReport = payload;
+  renderComparisonReport();
+}
+
+function comparisonStatus(item) {
+  if (item.unitsOut > item.unitsIn) return { label: "Se uso mas de lo comprado", key: "low" };
+  if (item.currentStock <= 0) return { label: "Sin stock", key: "out" };
+  if (item.balanceUnits > 0) return { label: "Quedo disponible", key: "ok" };
+  return { label: "Equilibrado", key: "ok" };
+}
+
+function renderComparisonReport() {
+  if (!els.comparisonRows) return;
+  const report = state.comparisonReport;
+  const summary = report?.summary || { totalUnitsIn: 0, totalUnitsOut: 0, totalConsumedCost: 0, netUnits: 0 };
+
+  els.comparisonPurchasedUnits.textContent = summary.totalUnitsIn || 0;
+  els.comparisonUsedUnits.textContent = summary.totalUnitsOut || 0;
+  els.comparisonConsumedCost.textContent = formatter.format(summary.totalConsumedCost || 0);
+  els.comparisonNetUnits.textContent = signedNumber(summary.netUnits || 0);
+  els.comparisonRows.innerHTML = "";
+
+  if (!canManageStock()) {
+    els.comparisonRows.innerHTML = `
+      <tr>
+        <td colspan="9">
+          <div class="empty-state">Tu usuario no puede consultar esta comparativa.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report) {
+    els.comparisonRows.innerHTML = `
+      <tr>
+        <td colspan="9">
+          <div class="empty-state">Genera una comparativa para revisar compras contra consumo.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report.rows.length) {
+    els.comparisonRows.innerHTML = `
+      <tr>
+        <td colspan="9">
+          <div class="empty-state">No hay entradas ni usos en este rango de fechas.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  report.rows.forEach((item) => {
+    const status = comparisonStatus(item);
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td data-label="Producto">
+        <strong>${escapeHtml(item.productName)}</strong>
+        <small>${escapeHtml(item.sku || "Sin codigo")}</small>
+      </td>
+      <td data-label="Categoria">${escapeHtml(formatCategoryPath(item))}</td>
+      <td data-label="Stock antes">${item.estimatedStartStock}</td>
+      <td data-label="Entradas">${item.unitsIn}</td>
+      <td data-label="Usos">${item.unitsOut}</td>
+      <td data-label="Saldo">${signedNumber(item.balanceUnits)}</td>
+      <td data-label="Gasto">${formatter.format(item.consumedCost)}</td>
+      <td data-label="Stock quedo">${item.currentStock}</td>
+      <td data-label="Estado"><span class="badge ${status.key}">${escapeHtml(status.label)}</span></td>
+    `;
+    els.comparisonRows.append(row);
+  });
+}
+
+async function downloadComparisonReport() {
+  if (!requireStockAccess()) return;
+  if (!els.comparisonStart.value || !els.comparisonEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/reports/stock-comparison.xlsx?${comparisonQueryString()}`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    showToast(payload.error || "No se pudo descargar la comparativa.");
+    return;
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `comparativa-entradas-usos-${els.comparisonStart.value}-a-${els.comparisonEnd.value}.xlsx`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  showToast("Comparativa descargada.");
+}
+
+function animateChart() {
+  if (!els.chart) return;
+  drawCategoryChart();
+}
+
+function drawCategoryChart() {
+  const totals = categoryTotals();
+  const max = Math.max(...totals.map((item) => item.value), 1);
+  const colors = ["#156b73", "#d45b3f", "#18805a", "#af7b12", "#536b8f", "#8a5b9f"];
+
+  els.chart.innerHTML = "";
+
+  if (!totals.length) {
+    els.chart.innerHTML = `<div class="empty-state">Sin datos para graficar.</div>`;
+    return;
+  }
+
+  totals.forEach((item, index) => {
+    const row = document.createElement("div");
+    row.className = "category-chart-row";
+
+    const label = document.createElement("span");
+    label.className = "category-chart-label";
+    label.title = item.category;
+    label.textContent = item.category;
+
+    const track = document.createElement("div");
+    track.className = "category-chart-track";
+
+    const bar = document.createElement("span");
+    bar.className = "category-chart-bar";
+    bar.style.background = colors[index % colors.length];
+    track.append(bar);
+
+    const value = document.createElement("span");
+    value.className = "category-chart-value";
+    value.textContent = formatter.format(item.value);
+
+    row.append(label, track, value);
+    els.chart.append(row);
+
+    requestAnimationFrame(() => {
+      bar.style.width = `${Math.max((item.value / max) * 100, 2)}%`;
+    });
+  });
+}
+
+function categoryTotals() {
+  const totals = new Map();
+  state.products.forEach((product) => {
+    const value = Number(product.stock) * Number(product.price);
+    totals.set(product.category, (totals.get(product.category) || 0) + value);
+  });
+  return [...totals.entries()]
+    .map(([category, value]) => ({ category, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
+}
+
+function openModal(product) {
+  if (!requireLogin()) return;
+  if (!requireAdmin()) return;
+
+  els.form.reset();
+  document.querySelector("#productId").value = product?.id || "";
+  els.modalTitle.textContent = product ? "Editar producto" : "Nuevo producto";
+
+  if (product) {
+    Object.entries(product).forEach(([key, value]) => {
+      const field = document.querySelector(`#${key}`);
+      if (field) field.value = value;
+    });
+  }
+
+  els.modal.classList.add("active");
+  els.modal.setAttribute("aria-hidden", "false");
+  document.querySelector("#name").focus();
+}
+
+function closeModal() {
+  els.modal.classList.remove("active");
+  els.modal.setAttribute("aria-hidden", "true");
+}
+
+async function openQuickProductModal(product) {
+  if (!requireLogin()) return;
+
+  els.quickTitle.textContent = product.name;
+  els.quickSubtitle.textContent = `${product.sku || "Sin codigo"} · ${formatCategoryPath(product)}`;
+  els.quickBody.innerHTML = `<div class="empty-state">Cargando ficha del producto...</div>`;
+  els.quickModal.classList.add("active");
+  els.quickModal.setAttribute("aria-hidden", "false");
+
+  try {
+    const response = await window.Auth.apiFetch(`/api/products/${product.id}/quick-card`);
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      throw new Error("El servidor aun no tiene activa la ficha rapida. Reinicia npm.cmd start.");
+    }
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "No se pudo cargar la ficha.");
+
+    els.quickTitle.textContent = payload.product.name;
+    els.quickSubtitle.textContent = `${payload.product.sku || "Sin codigo"} · ${formatCategoryPath(payload.product)}`;
+    els.quickBody.innerHTML = quickProductCardHtml(payload);
+  } catch (error) {
+    els.quickBody.innerHTML = `<div class="empty-state">${escapeHtml(error.message || "No se pudo cargar la ficha.")}</div>`;
+  }
+}
+
+function closeQuickProductModal() {
+  els.quickModal.classList.remove("active");
+  els.quickModal.setAttribute("aria-hidden", "true");
+}
+
+function quickProductCardHtml(payload) {
+  const product = payload.product;
+  const summary = payload.summary || {};
+  const status = getStockStatus(product);
+  const lastPurchase = payload.lastPurchase;
+  const lastExit = payload.lastExit;
+  const movements = payload.recentMovements || [];
+
+  return `
+    <div class="quick-stat-grid">
+      <article class="quick-stat">
+        <span>Stock actual</span>
+        <strong>${product.stock}</strong>
+        <small>Minimo ${product.minStock} · <span class="badge ${status.key}">${status.label}</span></small>
+      </article>
+      <article class="quick-stat">
+        <span>Precio</span>
+        <strong>${formatter.format(product.price)}</strong>
+        <small>Costo ${formatter.format(product.cost || 0)}</small>
+      </article>
+      <article class="quick-stat">
+        <span>Utilidad unidad</span>
+        <strong>${formatter.format(summary.unitMargin || 0)}</strong>
+        <small>Margen ${percentFormatter.format(summary.marginPercent || 0)}%</small>
+      </article>
+      <article class="quick-stat">
+        <span>Valor inventario</span>
+        <strong>${formatter.format(summary.stockValue || 0)}</strong>
+        <small>Costo estimado ${formatter.format(summary.costValue || 0)}</small>
+      </article>
+    </div>
+
+    <div class="quick-meta-grid">
+      ${quickMetaItem("Proveedor", product.supplier || "Sin proveedor")}
+      ${quickMetaItem("Ubicacion", product.location || "Sin ubicacion")}
+      ${quickMetaItem("Descripcion", product.description || "Sin descripcion")}
+      ${quickMetaItem("Actualizado", product.updatedAt ? formatDate(product.updatedAt) : "Sin fecha")}
+    </div>
+
+    <div class="quick-activity-grid">
+      ${quickActivityCard("Ultima compra", lastPurchase ? [
+        `${formatUnits(lastPurchase.quantity)} · ${formatter.format(lastPurchase.totalCost)}`,
+        `${lastPurchase.supplier} · ${formatDate(lastPurchase.createdAt)}`
+      ] : ["Sin compras registradas"])}
+      ${quickActivityCard("Ultimo uso", lastExit ? [
+        `${formatUnits(Math.abs(lastExit.quantity))} · ${lastExit.movementTypeLabel}`,
+        `${lastExit.note || "Uso en cocina"} · ${formatDate(lastExit.createdAt)}`
+      ] : ["Sin usos registrados"])}
+    </div>
+
+    <section class="quick-history">
+      <h3>Ultimos movimientos</h3>
+      ${movements.length ? movements.map(quickMovementHtml).join("") : `<div class="empty-state">Sin movimientos registrados.</div>`}
+    </section>
+  `;
+}
+
+function quickMetaItem(label, value) {
+  return `
+    <article class="quick-meta-item">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </article>
+  `;
+}
+
+function quickActivityCard(title, lines) {
+  return `
+    <article class="quick-activity-card">
+      <span>${escapeHtml(title)}</span>
+      ${lines.map((line, index) => index === 0 ? `<strong>${escapeHtml(line)}</strong>` : `<small>${escapeHtml(line)}</small>`).join("")}
+    </article>
+  `;
+}
+
+function quickMovementHtml(movement) {
+  const sign = movement.quantity > 0 ? "+" : "";
+  const badge = movement.quantity > 0 ? "ok" : "low";
+  return `
+    <article class="quick-history-item">
+      <div>
+        <strong>${escapeHtml(movement.movementTypeLabel || "Movimiento")}</strong>
+        <small>${escapeHtml(movement.note || "Sin nota")} · ${formatDate(movement.createdAt)}</small>
+      </div>
+      <span class="badge ${badge}">${sign}${movement.quantity}</span>
+    </article>
+  `;
+}
+
+function openExitModal(product) {
+  if (!requireStockAccess()) return;
+  els.exitForm.reset();
+  els.exitProductId.value = product.id;
+  els.exitProductName.textContent = `${product.name} · Stock actual: ${product.stock} · Costo: ${formatter.format(product.cost || 0)} · Precio: ${formatter.format(product.price || 0)}`;
+  els.exitQuantity.max = product.stock;
+  els.exitQuantity.value = product.stock > 0 ? 1 : "";
+  els.exitMovementType.value = "venta";
+  els.exitNote.value = exitTypeNotes.venta;
+  els.exitModal.classList.add("active");
+  els.exitModal.setAttribute("aria-hidden", "false");
+  els.exitQuantity.focus();
+}
+
+function closeExitModal() {
+  els.exitModal.classList.remove("active");
+  els.exitModal.setAttribute("aria-hidden", "true");
+}
+
+async function saveProductFromForm(event) {
+  event.preventDefault();
+  if (!requireAdmin()) return;
+
+  const formData = new FormData(els.form);
+  const id = document.querySelector("#productId").value;
+  const existing = state.products.find((product) => product.id === id);
+
+  const product = {
+    id,
+    name: formData.get("name").trim(),
+    sku: formData.get("sku").trim().toUpperCase(),
+    description: formData.get("description").trim(),
+    category: formData.get("category").trim(),
+    subcategory: formData.get("subcategory").trim(),
+    supplier: existing?.supplier || "",
+    stock: Number(formData.get("stock")),
+    minStock: Number(formData.get("minStock")),
+    cost: Number(existing?.cost || 0),
+    price: Number(formData.get("price")),
+    location: existing?.location || "",
+    updatedAt: new Date().toISOString()
+  };
+
+  if (!product.sku) {
+    product.sku = createSku(product.name, product.category);
+  }
+
+  if (!product.name || !product.category) {
+    showToast("Completa nombre y categoria.");
+    return;
+  }
+
+  try {
+    const response = await window.Auth.apiFetch(existing ? `/api/products/${id}` : "/api/products", {
+      method: existing ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(product)
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "No se pudo guardar el producto.");
+
+    await loadRemoteData();
+    closeModal();
+    render();
+    showToast(existing ? "Producto actualizado." : "Producto creado.");
+  } catch (error) {
+    showToast(error.message || "No se pudo guardar el producto.");
+  }
+}
+
+async function handleRowAction(event) {
+  const { action, id, amount } = event.currentTarget.dataset;
+  const product = state.products.find((item) => item.id === id);
+  if (!product) return;
+
+  if (action === "quick-view") {
+    await openQuickProductModal(product);
+    return;
+  }
+
+  if (action === "report-empty") {
+    await reportEmptyProduct(product);
+    return;
+  }
+
+  if (action === "edit") {
+    if (!requireAdmin()) return;
+    openModal(product);
+    return;
+  }
+
+  if (action === "detailed-exit") {
+    if (!requireStockAccess()) return;
+    openExitModal(product);
+    return;
+  }
+
+  if (action === "delete") {
+    if (!requireAdmin()) return;
+    if (!confirm(`Eliminar ${product.name} del inventario?`)) return;
+    const response = await window.Auth.apiFetch(`/api/products/${id}`, { method: "DELETE" });
+    const payload = await response.json();
+    if (!response.ok) {
+      showToast(payload.error || "No se pudo eliminar el producto.");
+      return;
+    }
+    await loadRemoteData();
+    render();
+    showToast("Producto eliminado del inventario.");
+    return;
+  }
+
+  if (action === "adjust") {
+    if (!requireStockAccess()) return;
+    adjustStock(product.id, Number(amount));
+  }
+}
+
+async function reportEmptyProduct(product) {
+  const message = prompt(`Mensaje para admin sobre ${product.name}:`, "Producto agotado o sin existencia en inventario.");
+  if (message === null) return;
+
+  const response = await window.Auth.apiFetch(`/api/products/${product.id}/stock-alert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo enviar el aviso.");
+    return;
+  }
+  const notificationMessage = stockAlertNotificationMessage(payload.notifications);
+  showToast(notificationMessage.message, notificationMessage.duration);
+}
+
+async function saveDetailedExit(event) {
+  event.preventDefault();
+  if (!requireStockAccess()) return;
+
+  const productId = els.exitProductId.value;
+  const product = state.products.find((item) => item.id === productId);
+  const quantity = Number(els.exitQuantity.value);
+  const movementType = els.exitMovementType.value;
+  const note = els.exitNote.value.trim() || exitTypeNotes[movementType] || "Uso en cocina";
+
+  if (!product) {
+    showToast("Producto no encontrado.");
+    return;
+  }
+
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    showToast("Captura una cantidad valida.");
+    return;
+  }
+
+  if (quantity > product.stock) {
+    showToast("No hay suficiente stock para registrar ese uso.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/products/${productId}/exit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quantity, movementType, note })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo registrar el uso de insumo.");
+    return;
+  }
+
+  closeExitModal();
+  await loadRemoteData();
+  state.exitReport = null;
+  state.incomeReport = null;
+  state.profitReport = null;
+  state.comparisonReport = null;
+  render();
+  showToast("Uso de insumo registrado.");
+}
+
+async function adjustStock(id, amount) {
+  if (!requireStockAccess()) return;
+  const product = state.products.find((item) => item.id === id);
+  if (!product) return;
+
+  const response = await window.Auth.apiFetch(`/api/products/${id}/adjust`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount })
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo ajustar el stock.");
+    return;
+  }
+
+  await loadRemoteData();
+  state.exitReport = null;
+  state.incomeReport = null;
+  state.profitReport = null;
+  state.comparisonReport = null;
+  render();
+  showToast(`${product.name}: stock ${amount > 0 ? "aumentado" : "reducido"}.`);
+}
+
+async function restockSuggested() {
+  if (!requireAdmin()) return;
+  const response = await window.Auth.apiFetch("/api/restock-suggested", { method: "POST" });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo aplicar la reposicion.");
+    return;
+  }
+
+  await loadRemoteData();
+  render();
+  showToast(
+    payload.updated
+      ? `Reposicion sugerida aplicada a ${payload.updated} productos (+${payload.units || 0} unidades).`
+      : "No hay productos por reponer."
+  );
+}
+
+async function clearMovements() {
+  if (!requireAdmin()) return;
+  if (!confirm("Limpiar todo el historial de movimientos?")) return;
+  const response = await window.Auth.apiFetch("/api/movements", { method: "DELETE" });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo limpiar el historial.");
+    return;
+  }
+  await loadRemoteData();
+  render();
+  showToast("Historial de movimientos limpiado.");
+}
+
+async function resetDemo() {
+  if (!requireAdmin()) return;
+  if (!confirm("Restaurar los datos demo? Esto reemplaza el inventario actual.")) return;
+  const response = await window.Auth.apiFetch("/api/reset-demo", { method: "POST" });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudieron restaurar los datos demo.");
+    return;
+  }
+  await loadRemoteData();
+  render();
+  showToast("Datos demo restaurados.");
+}
+
+function toggleTheme() {
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, state.theme);
+  document.body.classList.toggle("dark", state.theme === "dark");
+  showToast(state.theme === "dark" ? "Tema oscuro activado." : "Tema claro activado.");
+  render();
+}
+
+async function downloadBackup() {
+  if (!requireAdmin()) return;
+  const response = await window.Auth.apiFetch("/api/export");
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo exportar el respaldo.");
+    return;
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `inventario_querendona-${new Date().toISOString().slice(0, 10)}.json`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  showToast("Respaldo descargado.");
+}
+
+function importBackup(event) {
+  if (!requireAdmin()) {
+    event.target.value = "";
+    return;
+  }
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      if (!Array.isArray(parsed.products)) throw new Error("Formato invalido");
+      const response = await window.Auth.apiFetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed)
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "No se pudo importar el archivo.");
+      await loadRemoteData();
+      render();
+      showToast("Respaldo importado.");
+    } catch (error) {
+      showToast(error.message || "No se pudo importar el archivo.");
+    } finally {
+      event.target.value = "";
+    }
+  };
+  reader.readAsText(file);
+}
+
+function getStockStatus(product) {
+  if (product.stock === 0) return { key: "out", label: "Agotado" };
+  if (product.stock <= product.minStock) return { key: "low", label: "Bajo" };
+  return { key: "ok", label: "Saludable" };
+}
+
+function smartAlertBadge(severity) {
+  if (severity === "critical") return "out";
+  if (severity === "high" || severity === "medium") return "low";
+  return "ok";
+}
+
+function formatCategoryPath(item) {
+  return item.subcategory ? `${item.category} / ${item.subcategory}` : item.category || "Sin categoria";
+}
+
+function createSku(name, category) {
+  const prefix = `${category} ${name}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 16)
+    .toUpperCase();
+  return `${prefix || "PROD"}-${Date.now().toString().slice(-6)}`;
+}
+
+function initials(name) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function formatDate(value) {
+  return new Intl.DateTimeFormat("es-MX", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value));
+}
+
+function formatDateInput(value) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatUnits(value) {
+  const units = Number(value);
+  return `${units} ${units === 1 ? "unidad" : "unidades"}`;
+}
+
+function signedNumber(value) {
+  const number = Number(value || 0);
+  return number > 0 ? `+${number}` : String(number);
+}
+
+function showToast(message, duration = 2400) {
+  els.toast.textContent = message;
+  els.toast.classList.add("show");
+  clearTimeout(showToast.timeout);
+  showToast.timeout = setTimeout(() => els.toast.classList.remove("show"), duration);
+}
+
+function stockAlertNotificationMessage(notifications = []) {
+  const whatsapp = notifications.find((item) => item.channel === "whatsapp" || item.channel === "sendStockAlertWhatsapp");
+
+  if (whatsapp?.status === "sent") {
+    return { message: "Aviso guardado y WhatsApp enviado.", duration: 3000 };
+  }
+
+  if (whatsapp?.status === "failed") {
+    return { message: `Aviso guardado, pero WhatsApp fallo: ${whatsapp.error}`, duration: 7000 };
+  }
+
+  if (whatsapp?.status === "skipped") {
+    return { message: "Aviso guardado, pero WhatsApp no esta configurado.", duration: 5000 };
+  }
+
+  return { message: "Aviso enviado al admin.", duration: 3000 };
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+init();

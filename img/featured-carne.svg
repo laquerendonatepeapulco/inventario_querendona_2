@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="Carne">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe4dc"/>
+      <stop offset="1" stop-color="#e6a391"/>
+    </linearGradient>
+    <linearGradient id="tray" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dbe4eb"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="420" rx="38" fill="url(#bg)"/>
+  <ellipse cx="322" cy="344" rx="246" ry="34" fill="#bd2f2f" opacity=".16"/>
+  <rect x="112" y="126" width="416" height="196" rx="38" fill="url(#tray)"/>
+  <rect x="138" y="154" width="364" height="140" rx="28" fill="#f7fbff"/>
+  <path d="M212 264c-48-37-43-101 8-120 60-23 134 21 123 78-9 50-85 84-131 42z" fill="#bd2f2f"/>
+  <path d="M341 262c-48-40-33-107 21-120 62-16 128 36 108 91-16 46-88 68-129 29z" fill="#d45b3f"/>
+  <path d="M245 172c28 10 43 26 48 48M384 169c24 12 36 31 36 57" fill="none" stroke="#ffe4dc" stroke-width="12" stroke-linecap="round" opacity=".9"/>
+  <circle cx="258" cy="230" r="20" fill="#ffe4dc" opacity=".75"/>
+  <circle cx="405" cy="222" r="18" fill="#ffe4dc" opacity=".72"/>
+</svg>

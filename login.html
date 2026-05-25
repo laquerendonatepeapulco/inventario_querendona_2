@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Acceso | Inventario "La Querendona"</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="login-screen active" aria-labelledby="loginTitle">
+      <form id="loginForm" class="login-card">
+        <img class="login-logo" src="img/logo1.png" alt="La Querendona" />
+        <p class="eyebrow">Acceso seguro</p>
+        <h1 id="loginTitle">Inventario "La Querendona"</h1>
+        <p class="login-copy">Inicia sesion para entrar al panel segun tu rol operativo.</p>
+        <div class="login-fields">
+          <label>
+            Usuario
+            <input id="loginUser" name="loginUser" autocomplete="username" required />
+          </label>
+          <label>
+            Contrasena
+            <input id="loginPassword" name="loginPassword" type="password" autocomplete="current-password" required />
+          </label>
+        </div>
+        <p id="loginNotice" class="login-notice" role="alert" aria-live="polite"></p>
+        <button class="primary-button" type="submit">Entrar</button>
+        <div class="login-secondary-actions">
+          <button id="showPasswordChange" class="login-link-button" type="button">Cambiar contrasena</button>
+        </div>
+      </form>
+
+      <form id="loginPasswordForm" class="login-card is-hidden">
+        <img class="login-logo" src="img/logo1.png" alt="La Querendona" />
+        <p class="eyebrow">Cuenta</p>
+        <h1 id="changePasswordTitle">Cambiar contrasena</h1>
+        <p class="login-copy">Usa tu usuario y contrasena actual para guardar una nueva.</p>
+        <div class="login-fields">
+          <label>
+            Usuario
+            <input id="changeLoginUser" name="changeLoginUser" autocomplete="username" required />
+          </label>
+          <label>
+            Contrasena actual
+            <input id="changeCurrentPassword" name="changeCurrentPassword" type="password" autocomplete="current-password" required />
+          </label>
+          <label>
+            Nueva contrasena
+            <input id="changeNewPassword" name="changeNewPassword" type="password" autocomplete="new-password" minlength="6" required />
+          </label>
+          <label>
+            Confirmar nueva contrasena
+            <input id="changeConfirmPassword" name="changeConfirmPassword" type="password" autocomplete="new-password" minlength="6" required />
+          </label>
+        </div>
+        <p id="changePasswordNotice" class="login-notice" role="alert" aria-live="polite"></p>
+        <button class="primary-button" type="submit">Guardar contrasena</button>
+        <div class="login-secondary-actions">
+          <button id="showLoginAccess" class="login-link-button" type="button">Volver al inicio de sesion</button>
+        </div>
+      </form>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="auth.js?v=20260522-1"></script>
+    <script src="login.js?v=20260522-1"></script>
+  </body>
+</html>

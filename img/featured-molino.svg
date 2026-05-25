@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="Molino">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff4d2"/>
+      <stop offset="1" stop-color="#d7b45d"/>
+    </linearGradient>
+    <linearGradient id="sack" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf6e5"/>
+      <stop offset="1" stop-color="#c69b5d"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="420" rx="38" fill="url(#bg)"/>
+  <ellipse cx="318" cy="346" rx="236" ry="32" fill="#7f5633" opacity=".18"/>
+  <path d="M130 318h158c17-75 4-151-38-226H168c-43 75-56 151-38 226z" fill="url(#sack)"/>
+  <path d="M168 94c23 18 59 18 82 0" fill="none" stroke="#9a6d37" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="211" cy="206" r="46" fill="#fff8dd" opacity=".95"/>
+  <path d="M188 208c17-21 31-21 46 0M180 235h64" fill="none" stroke="#af7b12" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="410" cy="221" r="95" fill="#f7efe0"/>
+  <circle cx="410" cy="221" r="60" fill="#efe0c1"/>
+  <circle cx="410" cy="221" r="18" fill="#9a6d37"/>
+  <path d="M410 126v190M315 221h190M343 154l134 134M477 154 343 288" stroke="#c7a46d" stroke-width="12" stroke-linecap="round" opacity=".78"/>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="Abarrotes">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6ead2"/>
+      <stop offset="1" stop-color="#e7c86e"/>
+    </linearGradient>
+    <linearGradient id="bag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6f0df"/>
+      <stop offset="1" stop-color="#c99b57"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="420" rx="38" fill="url(#bg)"/>
+  <ellipse cx="334" cy="348" rx="238" ry="32" fill="#7f5633" opacity=".18"/>
+  <rect x="102" y="158" width="128" height="160" rx="22" fill="#d45b3f"/>
+  <rect x="124" y="128" width="84" height="72" rx="16" fill="#f4f7ec"/>
+  <path d="M127 147c26-18 52-18 78 0v31h-78z" fill="#156b73"/>
+  <rect x="251" y="98" width="142" height="228" rx="24" fill="url(#bag)"/>
+  <path d="M274 104c15-36 77-36 94 0" fill="none" stroke="#9f7538" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="321" cy="201" r="46" fill="#f4f7ec" opacity=".95"/>
+  <path d="M300 201h42M321 181v40" stroke="#af7b12" stroke-width="12" stroke-linecap="round"/>
+  <rect x="418" y="140" width="92" height="182" rx="20" fill="#156b73"/>
+  <rect x="432" y="160" width="64" height="82" rx="12" fill="#ffffff" opacity=".9"/>
+  <path d="M440 206c23-23 43-23 48 0 4 20-20 35-48 0z" fill="#18805a"/>
+  <rect x="512" y="185" width="54" height="128" rx="16" fill="#af7b12"/>
+  <rect x="522" y="203" width="34" height="62" rx="9" fill="#ffe4dc" opacity=".9"/>
+</svg>

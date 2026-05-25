@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inventario "La Querendona"</title>
+    <link rel="icon" href="img/logo_pestaña.png" type="image/png">
+    <link rel="stylesheet" href="styles.css?v=20260522-2" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navegacion principal">
+        <div class="brand">
+          <div>
+            <span></span>
+            <span></span>
+            <span></span>
+            <img src="img/logo1.png" alt="La Querendona Tepeapulco">
+
+          </div>
+          <div>
+            <strong>Inventario " La Querendona"</strong>
+            <small>Control operativo</small>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item active" data-panel="dashboard" type="button">
+            <span class="icon">⌂</span>
+            Panel
+          </button>
+          <button class="nav-item" data-panel="products" type="button">
+            <span class="icon">▦</span>
+            Productos
+          </button>
+          <button class="nav-item" data-panel="entries" type="button">
+            <span class="icon">＋</span>
+            Entradas
+          </button>
+          <button class="nav-item" data-panel="exits" type="button">
+            <span class="icon">−</span>
+            Salidas
+          </button>
+          <button class="nav-item" data-panel="comparison" type="button">
+            <span class="icon">≍</span>
+            Comparativa
+          </button>
+          <button class="nav-item" data-panel="movements" type="button">
+            <span class="icon">↕</span>
+            Movimientos
+          </button>
+          <button class="nav-item" data-panel="reports" type="button">
+            <span class="icon">▤</span>
+            Reportes
+          </button>
+          <button class="nav-item" data-panel="profit" type="button">
+            <span class="icon">$</span>
+            Utilidad
+          </button>
+          <button class="nav-item" data-panel="settings" type="button">
+            <span class="icon">⚙</span>
+            Ajustes
+          </button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Vista general</p>
+            <h1>Gestion de inventario</h1>
+          </div>
+          <div class="topbar-actions">
+            <div class="user-chip">
+              <span id="currentUserName">Cocinero</span>
+              <strong id="currentUserRole">Rol</strong>
+            </div>
+            <button id="themeToggle" class="icon-button" type="button" title="Cambiar tema">◐</button>
+            <button id="logoutButton" class="icon-button" type="button" title="Cerrar sesion">↪</button>
+            <button id="openProductModal" class="primary-button" type="button">+ Producto</button>
+            <a class="primary-button home-link" href="../index.html">Pagina principal</a>
+          </div>
+        </header>
+
+        <section id="dashboard" class="panel active" aria-labelledby="dashboardTitle">
+          <div class="hero-band">
+            <div>
+              <p class="eyebrow">Operacion diaria</p>
+              <h2 id="dashboardTitle">Stock, uso de insumos y alertas en una sola vista</h2>
+              <p class="hero-copy">Controla compras, usos de cocina, valor de inventario y productos criticos con datos guardados localmente.</p>
+            </div>
+          </div>
+
+          <div class="metrics-grid">
+            <article class="metric-card">
+              <span>Total productos</span>
+              <strong id="metricProducts">0</strong>
+              <small id="metricProductsHint">0 categorias activas</small>
+            </article>
+            <article class="metric-card">
+              <span>Unidades en stock</span>
+              <strong id="metricUnits">0</strong>
+              <small>Disponibles para cocina</small>
+            </article>
+            <article class="metric-card">
+              <span>Valor inventario</span>
+              <strong id="metricValue">$0</strong>
+              <small>Valor estimado del inventario</small>
+            </article>
+            <article class="metric-card alert">
+              <span>Bajo minimo</span>
+              <strong id="metricLowStock">0</strong>
+              <small>Necesitan reposicion</small>
+            </article>
+          </div>
+
+          <div class="content-grid">
+            <section class="workspace-section">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Prioridad</p>
+                  <h3>Alertas inteligentes</h3>
+                </div>
+                <span id="smartAlertCount" class="badge low">0 alertas</span>
+              </div>
+              <div id="alertList" class="alert-list"></div>
+            </section>
+
+            <section class="workspace-section">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Compras</p>
+                  <h3>Reposicion sugerida</h3>
+                </div>
+                <span id="restockSuggestionCount" class="badge ok">0 productos</span>
+                <button id="restockAll" class="ghost-button" type="button">Reponer sugerido</button>
+              </div>
+              <div id="restockSuggestionList" class="alert-list"></div>
+            </section>
+          </div>
+
+          <div class="content-grid dashboard-secondary-grid">
+            <section class="workspace-section">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Categorias</p>
+                  <h3>Valor por categoria</h3>
+                </div>
+              </div>
+              <div id="categoryChart" class="category-chart" role="img" aria-label="Grafica de categorias"></div>
+            </section>
+          </div>
+
+          <section id="adminAlertSection" class="workspace-section admin-alert-section">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Avisos de usuarios</p>
+                <h3>Productos reportados como agotados</h3>
+              </div>
+              <span id="adminAlertCount" class="badge low">0 abiertos</span>
+            </div>
+            <div id="adminAlertList" class="alert-list"></div>
+          </section>
+        </section>
+
+        <section id="products" class="panel" aria-labelledby="productsTitle">
+          <div class="toolbar">
+            <div>
+              <p class="eyebrow">Catalogo</p>
+              <h2 id="productsTitle">Productos registrados</h2>
+            </div>
+            <div class="toolbar-actions">
+              <select id="categoryFilter" aria-label="Filtrar por categoria">
+                <option value="all">Todas las categorias</option>
+              </select>
+              <select id="subcategoryFilter" aria-label="Filtrar por subcategoria">
+                <option value="all">Todas las subcategorias</option>
+              </select>
+              <select id="stockFilter" aria-label="Filtrar por estado">
+                <option value="all">Todos los estados</option>
+                <option value="ok">Stock saludable</option>
+                <option value="low">Bajo minimo</option>
+                <option value="out">Agotado</option>
+              </select>
+              <button id="exportData" class="ghost-button" type="button">Exportar JSON</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Cantidad</th>
+                  <th>Descripcion</th>
+                  <th>Categoria</th>
+                  <th>Subcategoria</th>
+                  <th>Precio</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="productRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="entries" class="panel" aria-labelledby="entriesTitle">
+          <div class="toolbar">
+            <div>
+              <p class="eyebrow">Compras</p>
+              <h2 id="entriesTitle">Entradas por proveedor</h2>
+            </div>
+            <button id="downloadPurchaseReport" class="primary-button" type="button">Descargar Excel</button>
+          </div>
+
+          <form id="purchaseForm" class="workspace-section purchase-form">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Nueva entrada</p>
+                <h3>Registrar compra</h3>
+              </div>
+              <div class="purchase-total">
+                <span>Total compra</span>
+                <strong id="purchaseTotal">$0</strong>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>
+                Categoria
+                <select id="purchaseCategory" aria-label="Filtrar productos por categoria">
+                  <option value="all">Todas las categorias</option>
+                </select>
+              </label>
+              <label>
+                Producto
+                <select id="purchaseProduct" name="productId" required>
+                  <option value="">Selecciona producto</option>
+                </select>
+              </label>
+              <label>
+                Proveedor
+                <input id="purchaseSupplier" name="supplier" list="supplierOptions" maxlength="80" required />
+                <datalist id="supplierOptions"></datalist>
+              </label>
+              <label>
+                Cantidad recibida
+                <input id="purchaseQuantity" name="quantity" type="number" min="1" step="1" required />
+              </label>
+              <label>
+                Costo unitario
+                <input id="purchaseUnitCost" name="unitCost" type="number" min="0" step="0.01" required />
+              </label>
+            </div>
+            <label>
+              Nota
+              <textarea id="purchaseNote" name="note" maxlength="180" rows="3" placeholder="Factura, folio o detalle de compra"></textarea>
+            </label>
+            <div class="modal-actions">
+              <button id="clearPurchaseForm" class="ghost-button" type="button">Limpiar</button>
+              <button id="savePurchase" class="primary-button" type="submit">Registrar entrada</button>
+            </div>
+          </form>
+
+          <section class="workspace-section report-controls">
+            <label>
+              Desde
+              <input id="purchaseStart" type="date" />
+            </label>
+            <label>
+              Hasta
+              <input id="purchaseEnd" type="date" />
+            </label>
+            <label>
+              Categoria
+              <select id="purchaseReportCategory" aria-label="Filtrar reporte por categoria">
+                <option value="all">Todas las categorias</option>
+              </select>
+            </label>
+            <label>
+              Producto
+              <select id="purchaseReportProduct" aria-label="Filtrar reporte por producto">
+                <option value="all">Todos los productos</option>
+              </select>
+            </label>
+            <button id="loadPurchaseReport" class="ghost-button" type="button">Generar compras</button>
+          </section>
+
+          <div class="metrics-grid report-metrics">
+            <article class="metric-card">
+              <span>Costo compras</span>
+              <strong id="purchaseTotalCost">$0</strong>
+              <small>Total del periodo</small>
+            </article>
+            <article class="metric-card">
+              <span>Unidades recibidas</span>
+              <strong id="purchaseUnits">0</strong>
+              <small>Cantidad agregada</small>
+            </article>
+            <article class="metric-card">
+              <span>Entradas</span>
+              <strong id="purchaseEntries">0</strong>
+              <small>Compras registradas</small>
+            </article>
+            <article class="metric-card">
+              <span>Proveedores</span>
+              <strong id="purchaseSuppliers">0</strong>
+              <small>Activos en el rango</small>
+            </article>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Producto</th>
+                  <th>Categoria</th>
+                  <th>Proveedor</th>
+                  <th>Cantidad</th>
+                  <th>Costo</th>
+                  <th>Total</th>
+                  <th>Usuario</th>
+                </tr>
+              </thead>
+              <tbody id="purchaseRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="movements" class="panel" aria-labelledby="movementsTitle">
+          <div class="toolbar">
+            <div>
+              <p class="eyebrow">Historial</p>
+              <h2 id="movementsTitle">Entradas y usos de insumos</h2>
+            </div>
+            <div class="toolbar-actions">
+              <select id="movementTypeFilter" aria-label="Filtrar movimientos por tipo">
+                <option value="all">Todos los tipos</option>
+              </select>
+              <button id="clearMovements" class="ghost-button danger" type="button">Limpiar historial</button>
+            </div>
+          </div>
+          <div id="movementTimeline" class="timeline"></div>
+        </section>
+
+        <section id="reports" class="panel" aria-labelledby="reportsTitle">
+          <div class="toolbar">
+            <div>
+              <p class="eyebrow">Ingresos</p>
+              <h2 id="reportsTitle">Reporte por fechas</h2>
+            </div>
+            <div class="toolbar-actions">
+              <button id="downloadIncomeReport" class="primary-button" type="button">Descargar ingresos</button>
+            </div>
+          </div>
+
+          <section class="workspace-section report-controls">
+            <label>
+              Desde
+              <input id="reportStart" type="date" />
+            </label>
+            <label>
+              Hasta
+              <input id="reportEnd" type="date" />
+            </label>
+            <button id="loadIncomeReport" class="ghost-button" type="button">Generar reporte</button>
+          </section>
+
+          <div class="metrics-grid report-metrics">
+            <article class="metric-card">
+              <span>Ingresos totales</span>
+              <strong id="reportIncome">$0</strong>
+              <small>Usos rapidos del periodo</small>
+            </article>
+            <article class="metric-card">
+              <span>Unidades utilizadas</span>
+              <strong id="reportUnits">0</strong>
+              <small>Cantidad descontada</small>
+            </article>
+            <article class="metric-card">
+              <span>Movimientos</span>
+              <strong id="reportMovements">0</strong>
+              <small>Registros encontrados</small>
+            </article>
+            <article class="metric-card">
+              <span>Periodo</span>
+              <strong id="reportRange">-</strong>
+              <small>Rango consultado</small>
+            </article>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Producto</th>
+                  <th>SKU</th>
+                  <th>Categoria</th>
+                  <th>Cantidad</th>
+                  <th>Precio</th>
+                  <th>Total</th>
+                  <th>Usuario</th>
+                </tr>
+              </thead>
+              <tbody id="incomeReportRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="exits" class="panel" aria-labelledby="exitsTitle">
+          <div class="toolbar">
+            <div>
+              <p class="eyebrow">Uso de insumos</p>
+              <h2 id="exitsTitle">Insumos utilizados</h2>
+            </div>
+            <button id="downloadExitReport" class="primary-button" type="button">Descargar Excel</button>
+          </div>
+
+          <form id="exitRegisterForm" class="workspace-section purchase-form">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Nuevo uso</p>
+                <h3>Registrar uso de insumo</h3>
+              </div>
+              <div class="purchase-total">
+                <span>Stock actual</span>
+                <strong id="exitStockPreview">-</strong>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>
+                Categoria
+                <select id="exitCategory" aria-label="Filtrar productos por categoria">
+                  <option value="all">Todas las categorias</option>
+                </select>
+              </label>
+              <label>
+                Producto
+                <input id="exitProductSearch" name="productSearch" type="search" list="exitProductOptions" placeholder="Escribe para buscar producto" autocomplete="off" required />
+                <input id="exitProduct" name="productId" type="hidden" />
+                <datalist id="exitProductOptions"></datalist>
+              </label>
+              <label>
+                Tipo de uso
+                <select id="exitRegisterMovementType" name="movementType" required>
+                  <option value="venta">Uso en cocina</option>
+                  <option value="merma">Merma</option>
+                  <option value="danado">Producto dañado</option>
+                  <option value="consumo_interno">Consumo interno</option>
+                  <option value="ajuste">Ajuste de inventario</option>
+                </select>
+              </label>
+              <label>
+                Cantidad utilizada
+                <input id="exitRegisterQuantity" name="quantity" type="number" min="1" step="1" required />
+              </label>
+            </div>
+            <label>
+              Nota
+              <textarea id="exitRegisterNote" name="note" maxlength="180" rows="3" placeholder="Platillo, area o detalle del insumo utilizado"></textarea>
+            </label>
+            <div class="modal-actions">
+              <button id="clearExitRegisterForm" class="ghost-button" type="button">Limpiar</button>
+              <button id="saveExitRegister" class="primary-button" type="submit">Registrar uso</button>
+            </div>
+          </form>
+
+          <section class="workspace-section report-controls">
+            <label>
+              Desde
+              <input id="exitStart" type="date" />
+            </label>
+            <label>
+              Hasta
+              <input id="exitEnd" type="date" />
+            </label>
+            <button id="loadExitReport" class="ghost-button" type="button">Generar reporte</button>
+          </section>
+
+          <div class="metrics-grid report-metrics">
+            <article class="metric-card">
+              <span>Valor utilizado</span>
+              <strong id="exitTotalValue">$0</strong>
+              <small>Insumos usados en el periodo</small>
+            </article>
+            <article class="metric-card">
+              <span>Unidades utilizadas</span>
+              <strong id="exitUnits">0</strong>
+              <small>Cantidad descontada</small>
+            </article>
+            <article class="metric-card">
+              <span>Movimientos</span>
+              <strong id="exitMovements">0</strong>
+              <small>Registros encontrados</small>
+            </article>
+            <article class="metric-card">
+              <span>Periodo</span>
+              <strong id="exitRange">-</strong>
+              <small>Rango consultado</small>
+            </article>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Producto</th>
+                  <th>Categoria</th>
+                  <th>Tipo</th>
+                  <th>Motivo</th>
+                  <th>Cantidad</th>
+                  <th>Precio</th>
+                  <th>Total</th>
+                  <th>Usuario</th>
+                </tr>
+              </thead>
+              <tbody id="exitReportRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="comparison" class="panel" aria-labelledby="comparisonTitle">
+          <div class="toolbar">
+            <div>
+              <p class="eyebrow">Control de consumo</p>
+              <h2 id="comparisonTitle">Comparativa de entradas y usos</h2>
+            </div>
+            <button id="downloadComparisonReport" class="primary-button" type="button">Descargar Excel</button>
+          </div>
+
+          <section class="workspace-section report-controls">
+            <label>
+              Desde
+              <input id="comparisonStart" type="date" />
+            </label>
+            <label>
+              Hasta
+              <input id="comparisonEnd" type="date" />
+            </label>
+            <button id="loadComparisonReport" class="ghost-button" type="button">Generar comparativa</button>
+          </section>
+
+          <div class="metrics-grid report-metrics">
+            <article class="metric-card">
+              <span>Unidades compradas</span>
+              <strong id="comparisonPurchasedUnits">0</strong>
+              <small>Entradas registradas</small>
+            </article>
+            <article class="metric-card">
+              <span>Unidades utilizadas</span>
+              <strong id="comparisonUsedUnits">0</strong>
+              <small>Usos registrados</small>
+            </article>
+            <article class="metric-card">
+              <span>Gasto estimado</span>
+              <strong id="comparisonConsumedCost">MXN 0</strong>
+              <small>Costo de lo utilizado</small>
+            </article>
+            <article class="metric-card">
+              <span>Saldo del periodo</span>
+              <strong id="comparisonNetUnits">0</strong>
+              <small>Comprado menos usado</small>
+            </article>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Categoria</th>
+                  <th>Stock antes</th>
+                  <th>Entradas</th>
+                  <th>Usos</th>
+                  <th>Saldo</th>
+                  <th>Gasto</th>
+                  <th>Stock quedó</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="comparisonRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="profit" class="panel" aria-labelledby="profitTitle">
+          <div class="toolbar">
+            <div>
+              <p class="eyebrow">Utilidad</p>
+              <h2 id="profitTitle">Ganancia estimada</h2>
+            </div>
+            <button id="downloadProfitReport" class="primary-button" type="button">Descargar Excel</button>
+          </div>
+
+          <section class="workspace-section report-controls">
+            <label>
+              Desde
+              <input id="profitStart" type="date" />
+            </label>
+            <label>
+              Hasta
+              <input id="profitEnd" type="date" />
+            </label>
+            <button id="loadProfitReport" class="ghost-button" type="button">Generar utilidad</button>
+          </section>
+
+          <div class="metrics-grid report-metrics">
+            <article class="metric-card">
+              <span>Ingreso estimado</span>
+              <strong id="profitIncome">$0</strong>
+              <small>Usos del periodo</small>
+            </article>
+            <article class="metric-card">
+              <span>Costo estimado</span>
+              <strong id="profitCost">$0</strong>
+              <small>Costo de insumos utilizados</small>
+            </article>
+            <article class="metric-card">
+              <span>Ganancia estimada</span>
+              <strong id="profitGain">$0</strong>
+              <small>Ingreso menos costo</small>
+            </article>
+            <article class="metric-card">
+              <span>Margen</span>
+              <strong id="profitMargin">0%</strong>
+              <small>Ganancia sobre ingreso</small>
+            </article>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>SKU</th>
+                  <th>Categoria</th>
+                  <th>Unidades</th>
+                  <th>Precio prom.</th>
+                  <th>Costo prom.</th>
+                  <th>Ingreso</th>
+                  <th>Costo</th>
+                  <th>Ganancia</th>
+                  <th>Margen</th>
+                </tr>
+              </thead>
+              <tbody id="profitRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="settings" class="panel" aria-labelledby="settingsTitle">
+          <div class="toolbar">
+            <div>
+              <p class="eyebrow">Sistema</p>
+              <h2 id="settingsTitle">Ajustes y respaldo</h2>
+            </div>
+          </div>
+          <div class="settings-grid">
+            <article class="workspace-section account-settings-card">
+              <h3>Cambiar contrasena</h3>
+              <p>Actualiza solo la contrasena de la cuenta con la que iniciaste sesion.</p>
+              <form id="changePasswordForm" class="settings-form">
+                <label>
+                  Contrasena actual
+                  <input id="currentPassword" name="currentPassword" type="password" autocomplete="current-password" required />
+                </label>
+                <label>
+                  Nueva contrasena
+                  <input id="newPassword" name="newPassword" type="password" autocomplete="new-password" minlength="6" required />
+                </label>
+                <label>
+                  Confirmar nueva contrasena
+                  <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required />
+                </label>
+                <div class="setting-actions">
+                  <button class="primary-button" type="submit">Guardar contrasena</button>
+                </div>
+              </form>
+            </article>
+            <article id="adminPasswordResetCard" class="workspace-section account-settings-card" hidden>
+              <h3>Restablecer contrasena</h3>
+              <p>Asigna una contrasena temporal cuando un usuario no recuerde la actual.</p>
+              <form id="resetUserPasswordForm" class="settings-form">
+                <label>
+                  Usuario
+                  <select id="resetPasswordUser" name="resetPasswordUser" required></select>
+                </label>
+                <label>
+                  Nueva contrasena temporal
+                  <input id="resetPasswordValue" name="resetPasswordValue" type="password" autocomplete="new-password" minlength="6" required />
+                </label>
+                <label>
+                  Confirmar contrasena temporal
+                  <input id="resetPasswordConfirm" name="resetPasswordConfirm" type="password" autocomplete="new-password" minlength="6" required />
+                </label>
+                <div class="setting-actions">
+                  <button id="resetUserPasswordButton" class="primary-button" type="submit">Restablecer contrasena</button>
+                </div>
+              </form>
+            </article>
+            <article class="workspace-section">
+              <h3>Datos</h3>
+              <p>Guarda una copia o restaura el inventario de ejemplo.</p>
+              <div class="setting-actions">
+                <button id="downloadBackup" class="primary-button" type="button">Descargar respaldo</button>
+                <button id="resetDemo" class="ghost-button danger" type="button">Restaurar demo</button>
+              </div>
+            </article>
+            <article class="workspace-section">
+              <h3>Importar respaldo</h3>
+              <p>Selecciona un archivo JSON exportado desde este sistema.</p>
+              <input id="importFile" type="file" accept="application/json" />
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="productModal" class="modal-backdrop" aria-hidden="true">
+      <form id="productForm" class="modal" aria-labelledby="modalTitle">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Producto</p>
+            <h2 id="modalTitle">Nuevo producto</h2>
+          </div>
+          <button id="closeProductModal" class="icon-button" type="button" title="Cerrar">×</button>
+        </div>
+        <input id="productId" type="hidden" />
+        <input id="sku" name="sku" type="hidden" />
+        <div class="form-grid">
+          <label>
+            Nombre
+            <input id="name" name="name" required maxlength="80" />
+          </label>
+          <label>
+            Categoria
+            <input id="category" name="category" list="categoryOptions" required maxlength="40" />
+            <datalist id="categoryOptions">
+              <option value="Abarrotes"></option>
+              <option value="Bebidas"></option>
+              <option value="Cocina"></option>
+              <option value="Desechables"></option>
+              <option value="Fruta y verdura"></option>
+              <option value="Limpieza"></option>
+              <option value="Molino"></option>
+            </datalist>
+          </label>
+          <label>
+            Subcategoria
+            <input id="subcategory" name="subcategory" list="subcategoryOptions" maxlength="40" />
+            <datalist id="subcategoryOptions">
+              <option value="Refrescos"></option>
+              <option value="Alcohol"></option>
+              <option value="Agua"></option>
+              <option value="Carne"></option>
+              <option value="Lacteos"></option>
+              <option value="Verdura"></option>
+              <option value="Desechables"></option>
+            </datalist>
+          </label>
+          <label>
+            Cantidad
+            <input id="stock" name="stock" type="number" min="0" step="1" required />
+          </label>
+          <label>
+            Cantidad minima para alerta
+            <input id="minStock" name="minStock" type="number" min="0" step="1" required />
+          </label>
+          <label>
+            Precio
+            <input id="price" name="price" type="number" min="0" step="0.01" required />
+          </label>
+        </div>
+        <label>
+          Descripcion
+          <textarea id="description" name="description" maxlength="180" rows="3" placeholder="Presentacion, marca, tamano o detalle util"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" id="cancelProduct">Cancelar</button>
+          <button class="primary-button" type="submit">Guardar producto</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="quickProductModal" class="modal-backdrop" aria-hidden="true">
+      <section class="modal quick-product-modal" aria-labelledby="quickProductTitle">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Ficha rapida</p>
+            <h2 id="quickProductTitle">Producto</h2>
+            <p id="quickProductSubtitle" class="quick-product-subtitle"></p>
+          </div>
+          <button id="closeQuickProductModal" class="icon-button" type="button" title="Cerrar">×</button>
+        </div>
+        <div id="quickProductBody" class="quick-product-body"></div>
+      </section>
+    </div>
+
+    <div id="exitModal" class="modal-backdrop" aria-hidden="true">
+      <form id="exitForm" class="modal" aria-labelledby="exitModalTitle">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Uso detallado</p>
+            <h2 id="exitModalTitle">Registrar uso de insumo</h2>
+          </div>
+          <button id="closeExitModal" class="icon-button" type="button" title="Cerrar">×</button>
+        </div>
+        <input id="exitProductId" name="productId" type="hidden" />
+        <p id="exitProductName" class="modal-copy"></p>
+        <div class="form-grid">
+          <label>
+            Tipo de uso
+            <select id="exitMovementType" name="movementType" required>
+              <option value="venta">Uso en cocina</option>
+              <option value="merma">Merma</option>
+              <option value="danado">Producto dañado</option>
+              <option value="consumo_interno">Consumo interno</option>
+              <option value="ajuste">Ajuste de inventario</option>
+            </select>
+          </label>
+          <label>
+            Cantidad
+            <input id="exitQuantity" name="quantity" type="number" min="1" step="1" required />
+          </label>
+        </div>
+        <label>
+          Nota
+          <textarea id="exitNote" name="note" maxlength="180" rows="3" placeholder="Platillo, area o detalle del insumo utilizado"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" id="cancelExit">Cancelar</button>
+          <button class="primary-button" type="submit">Guardar uso</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="auth.js?v=20260519-2"></script>
+    <script src="app.js?v=20260525-2"></script>
+  </body>
+</html>

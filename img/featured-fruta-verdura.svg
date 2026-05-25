@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-label="Fruta y verdura">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6f4dc"/>
+      <stop offset="1" stop-color="#9ccc8b"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="420" rx="38" fill="url(#bg)"/>
+  <ellipse cx="322" cy="348" rx="244" ry="34" fill="#18805a" opacity=".16"/>
+  <rect x="116" y="226" width="408" height="92" rx="20" fill="#9b6a3d"/>
+  <path d="M132 228h376l-30 92H162z" fill="#bf8954"/>
+  <path d="M154 256h332M178 294h286" stroke="#7b4c28" stroke-width="12" stroke-linecap="round" opacity=".55"/>
+  <circle cx="198" cy="204" r="42" fill="#d45b3f"/>
+  <circle cx="260" cy="184" r="46" fill="#af7b12"/>
+  <circle cx="326" cy="196" r="48" fill="#18805a"/>
+  <circle cx="392" cy="184" r="42" fill="#d45b3f"/>
+  <circle cx="450" cy="210" r="39" fill="#f4d24d"/>
+  <path d="M314 149c20-34 55-44 88-29-28 2-52 17-72 45z" fill="#156b73"/>
+  <path d="M247 136c22-26 50-34 80-21-27 2-48 15-63 41z" fill="#18805a"/>
+</svg>
