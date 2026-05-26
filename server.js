@@ -11,8 +11,9 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, "public");
 const isVercel = Boolean(process.env.VERCEL);
+const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL;
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: databaseUrl
 });
 
 let readyPromise = null;
@@ -762,8 +763,8 @@ function startShiftExitAlertScheduler() {
 }
 
 function ensureReady({ scheduler = false } = {}) {
-  if (!process.env.DATABASE_URL) {
-    return Promise.reject(new Error("Falta DATABASE_URL. Configura PostgreSQL antes de iniciar."));
+  if (!databaseUrl) {
+    return Promise.reject(new Error("Falta DATABASE_URL o POSTGRES_URL. Configura PostgreSQL antes de iniciar."));
   }
 
   if (!readyPromise) {
