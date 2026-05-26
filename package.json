@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "db:init": "psql \"$DATABASE_URL\" -f schema.sql"
+    "db:init": "psql \"$DATABASE_URL\" -f schema.sql",
+    "db:migrate:neon": "node scripts/migrate-to-neon.js"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

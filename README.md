@@ -88,6 +88,19 @@ Si tu servicio de cron no permite headers, tambien puedes llamar:
 https://tu-dominio.vercel.app/api/cron/shift-exit-alerts?secret=TU_CRON_SECRET
 ```
 
+## Migrar datos locales a Neon
+
+Si ya tienes productos, usuarios, entradas, salidas y avisos en tu PostgreSQL local, puedes copiarlos a Neon sin usar `pg_dump`. Esto evita problemas de version entre PostgreSQL local y las herramientas instaladas.
+
+El comando reemplaza los datos actuales de Neon por los datos de tu base local:
+
+```powershell
+$neonDb = "PEGA_AQUI_TU_CONNECTION_STRING_DE_NEON"
+npm run db:migrate:neon -- "$neonDb"
+```
+
+El origen se toma de `DATABASE_URL` en tu `.env` local. El destino debe ser la cadena de conexion de Neon con password real, no una URL con `localhost`.
+
 ## Base de datos
 
 El servidor crea automaticamente las tablas si no existen y carga datos demo cuando la tabla de productos esta vacia. El archivo `schema.sql` tambien contiene el esquema por si prefieres ejecutarlo manualmente.
