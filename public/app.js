@@ -633,7 +633,6 @@ function renderProducts() {
       ? `
         <div class="row-actions">
           <button type="button" title="Ficha rapida" data-action="quick-view" data-id="${product.id}">Ficha</button>
-          <button type="button" title="Uso detallado" data-action="detailed-exit" data-id="${product.id}">Uso</button>
           <button type="button" title="Avisar agotado" data-action="report-empty" data-id="${product.id}">Avisar agotado</button>
         </div>`
       : `
