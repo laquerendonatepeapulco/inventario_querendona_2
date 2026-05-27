@@ -275,6 +275,10 @@ label {
   display: none;
 }
 
+.mobile-status-card {
+  display: none;
+}
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -1171,12 +1175,89 @@ label {
 
   .brand {
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     text-align: center;
   }
 
   .brand img {
-    width: min(180px, 74vw);
+    width: min(170px, 64vw);
+  }
+
+  .brand strong,
+  .brand small {
+    display: none;
+  }
+
+  .mobile-status-card {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 14px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    box-shadow: 0 12px 28px rgba(23, 32, 42, 0.08);
+  }
+
+  .mobile-status-heading {
+    display: grid;
+    gap: 2px;
+  }
+
+  .mobile-status-heading span,
+  .mobile-user-chip span {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .mobile-status-heading strong {
+    color: var(--text);
+    font-size: 1.1rem;
+    line-height: 1.1;
+  }
+
+  .mobile-user-chip {
+    display: grid;
+    gap: 2px;
+    min-height: 0;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--panel);
+  }
+
+  .mobile-user-chip strong {
+    color: var(--text);
+    font-size: 0.95rem;
+    line-height: 1.1;
+  }
+
+  .mobile-action-grid {
+    display: grid;
+    grid-template-columns: 44px 44px 1fr;
+    gap: 8px;
+  }
+
+  .mobile-action-grid .home-link {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-action-grid .primary-button,
+  .mobile-action-grid .icon-button {
+    min-height: 42px;
+  }
+
+  .mobile-action-grid .primary-button {
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+
+  .topbar {
+    display: none;
   }
 
   .nav-list {

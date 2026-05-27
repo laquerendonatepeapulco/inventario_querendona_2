@@ -108,6 +108,8 @@ const els = {
   chart: document.querySelector("#categoryChart"),
   currentUserName: document.querySelector("#currentUserName"),
   currentUserRole: document.querySelector("#currentUserRole"),
+  mobileCurrentUserName: document.querySelector("#mobileCurrentUserName"),
+  mobileCurrentUserRole: document.querySelector("#mobileCurrentUserRole"),
   changePasswordForm: document.querySelector("#changePasswordForm"),
   currentPassword: document.querySelector("#currentPassword"),
   newPassword: document.querySelector("#newPassword"),
@@ -204,14 +206,20 @@ function bindEvents() {
   });
   els.mobileNavSelect.addEventListener("change", () => switchPanel(els.mobileNavSelect.value));
 
-  document.querySelector("#openProductModal").addEventListener("click", () => openModal());
-  document.querySelector("#logoutButton").addEventListener("click", logout);
+  document.querySelectorAll("#openProductModal, #mobileOpenProductModal").forEach((button) => {
+    button.addEventListener("click", () => openModal());
+  });
+  document.querySelectorAll("#logoutButton, #mobileLogoutButton").forEach((button) => {
+    button.addEventListener("click", logout);
+  });
   document.querySelector("#closeProductModal").addEventListener("click", closeModal);
   document.querySelector("#cancelProduct").addEventListener("click", closeModal);
   document.querySelector("#closeQuickProductModal").addEventListener("click", closeQuickProductModal);
   document.querySelector("#closeExitModal").addEventListener("click", closeExitModal);
   document.querySelector("#cancelExit").addEventListener("click", closeExitModal);
-  document.querySelector("#themeToggle").addEventListener("click", toggleTheme);
+  document.querySelectorAll("#themeToggle, #mobileThemeToggle").forEach((button) => {
+    button.addEventListener("click", toggleTheme);
+  });
   document.querySelector("#downloadBackup").addEventListener("click", downloadBackup);
   document.querySelector("#resetDemo").addEventListener("click", resetDemo);
   document.querySelector("#clearMovements").addEventListener("click", clearMovements);
@@ -368,17 +376,18 @@ function renderSession() {
 
   els.currentUserName.textContent = currentUser?.name || "Sin sesion";
   els.currentUserRole.textContent = currentUser?.label || "Bloqueado";
+  els.mobileCurrentUserName.textContent = currentUser?.name || "Sin sesion";
+  els.mobileCurrentUserRole.textContent = currentUser?.label || "Bloqueado";
   if (els.adminAlertSection) {
     els.adminAlertSection.hidden = !isAdmin();
   }
   if (els.adminPasswordResetCard) {
     els.adminPasswordResetCard.hidden = !isAdmin();
   }
-  const productButton = document.querySelector("#openProductModal");
-  if (productButton) {
+  document.querySelectorAll("#openProductModal, #mobileOpenProductModal").forEach((productButton) => {
     productButton.hidden = !isAdmin();
     productButton.disabled = !isAdmin();
-  }
+  });
   document.querySelectorAll("[data-admin-only]").forEach((node) => {
     node.disabled = !isAdmin();
   });
