@@ -20,6 +20,7 @@ let activePanel = "dashboard";
 const els = {
   panels: document.querySelectorAll(".panel"),
   navItems: document.querySelectorAll(".nav-item"),
+  mobileNavSelect: document.querySelector("#mobileNavSelect"),
   categoryFilter: document.querySelector("#categoryFilter"),
   subcategoryFilter: document.querySelector("#subcategoryFilter"),
   stockFilter: document.querySelector("#stockFilter"),
@@ -201,6 +202,7 @@ function bindEvents() {
   els.navItems.forEach((item) => {
     item.addEventListener("click", () => switchPanel(item.dataset.panel));
   });
+  els.mobileNavSelect.addEventListener("change", () => switchPanel(els.mobileNavSelect.value));
 
   document.querySelector("#openProductModal").addEventListener("click", () => openModal());
   document.querySelector("#logoutButton").addEventListener("click", logout);
@@ -479,6 +481,7 @@ function switchPanel(panel) {
   activePanel = panel;
   els.panels.forEach((node) => node.classList.toggle("active", node.id === panel));
   els.navItems.forEach((node) => node.classList.toggle("active", node.dataset.panel === panel));
+  els.mobileNavSelect.value = panel;
   if (panel === "dashboard") animateChart();
   if (panel === "entries" && canManageStock() && !state.purchaseReport) loadPurchaseReport();
   if (panel === "reports" && isAdmin() && !state.incomeReport) loadIncomeReport();
