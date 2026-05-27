@@ -381,6 +381,7 @@ h3 {
 .form-grid input,
 .modal > label input,
 .modal textarea,
+.toolbar-actions input[type="search"],
 select,
 #importFile {
   width: 100%;
@@ -670,6 +671,7 @@ select,
 select,
 #importFile,
 .form-grid input,
+.toolbar-actions input[type="search"],
 .purchase-form input,
 .purchase-form input[type="search"],
 .purchase-form select,

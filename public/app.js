@@ -23,6 +23,7 @@ const els = {
   categoryFilter: document.querySelector("#categoryFilter"),
   subcategoryFilter: document.querySelector("#subcategoryFilter"),
   stockFilter: document.querySelector("#stockFilter"),
+  productSearch: document.querySelector("#productSearch"),
   productRows: document.querySelector("#productRows"),
   alertList: document.querySelector("#alertList"),
   smartAlertCount: document.querySelector("#smartAlertCount"),
@@ -209,7 +210,6 @@ function bindEvents() {
   document.querySelector("#closeExitModal").addEventListener("click", closeExitModal);
   document.querySelector("#cancelExit").addEventListener("click", closeExitModal);
   document.querySelector("#themeToggle").addEventListener("click", toggleTheme);
-  document.querySelector("#exportData").addEventListener("click", downloadBackup);
   document.querySelector("#downloadBackup").addEventListener("click", downloadBackup);
   document.querySelector("#resetDemo").addEventListener("click", resetDemo);
   document.querySelector("#clearMovements").addEventListener("click", clearMovements);
@@ -236,6 +236,7 @@ function bindEvents() {
   });
   els.subcategoryFilter.addEventListener("change", renderProducts);
   els.stockFilter.addEventListener("change", renderProducts);
+  els.productSearch.addEventListener("input", renderProducts);
   els.movementTypeFilter.addEventListener("change", renderMovements);
   els.form.addEventListener("submit", saveProductFromForm);
   els.exitForm.addEventListener("submit", saveDetailedExit);
@@ -382,7 +383,6 @@ function renderSession() {
 
   const adminControls = [
     "#restockAll",
-    "#exportData",
     "#downloadBackup",
     "#resetDemo",
     "#clearMovements",
@@ -540,12 +540,20 @@ function filteredProducts() {
   const category = els.categoryFilter.value;
   const subcategory = els.subcategoryFilter.value;
   const stock = els.stockFilter.value;
+  const search = normalizeSearch(els.productSearch.value);
 
   return state.products.filter((product) => {
     const categoryMatch = category === "all" || product.category === category;
     const subcategoryMatch = subcategory === "all" || product.subcategory === subcategory;
     const statusMatch = stock === "all" || getStockStatus(product).key === stock;
-    return categoryMatch && subcategoryMatch && statusMatch;
+    const searchMatch = !search || normalizeSearch([
+      product.name,
+      product.sku,
+      product.description,
+      product.category,
+      product.subcategory
+    ].join(" ")).includes(search);
+    return categoryMatch && subcategoryMatch && statusMatch && searchMatch;
   });
 }
 
@@ -2289,6 +2297,14 @@ function smartAlertBadge(severity) {
 
 function formatCategoryPath(item) {
   return item.subcategory ? `${item.category} / ${item.subcategory}` : item.category || "Sin categoria";
+}
+
+function normalizeSearch(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 function createSku(name, category) {
