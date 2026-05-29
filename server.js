@@ -2203,6 +2203,60 @@ function sanitizePurchase(input) {
   return purchase;
 }
 
+async function applyPurchase(client, purchase, userId) {
+  const totalCost = Number((purchase.quantity * purchase.unitCost).toFixed(2));
+  const productResult = await client.query(`SELECT * FROM products WHERE id = $1 FOR UPDATE`, [purchase.productId]);
+  const product = productResult.rows[0];
+  if (!product) {
+    const error = new Error("Producto no encontrado");
+    error.status = 404;
+    throw error;
+  }
+
+  const inserted = await client.query(
+    `INSERT INTO purchase_entries
+     (product_id, product_name, sku, category, subcategory, supplier, quantity, unit_cost, total_cost, note, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING *`,
+    [
+      product.id,
+      product.name,
+      product.sku,
+      product.category,
+      product.subcategory || "",
+      purchase.supplier,
+      purchase.quantity,
+      purchase.unitCost,
+      totalCost,
+      purchase.note,
+      userId
+    ]
+  );
+
+  const updated = await client.query(
+    `UPDATE products
+     SET stock = stock + $1, supplier = $2, cost = $3, updated_at = now()
+     WHERE id = $4
+     RETURNING *`,
+    [purchase.quantity, purchase.supplier, purchase.unitCost, product.id]
+  );
+  await recordMovement(
+    client,
+    updated.rows[0],
+    purchase.quantity,
+    `Compra a ${purchase.supplier}`,
+    userId,
+    null,
+    "compra",
+    purchase.unitCost
+  );
+
+  return {
+    purchase: inserted.rows[0],
+    product: updated.rows[0]
+  };
+}
+
 async function authRequired(req, res, next) {
   const header = req.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
@@ -2828,59 +2882,56 @@ app.post("/api/purchases", authRequired, stockAccessRequired, async (req, res, n
   const client = await pool.connect();
   try {
     const purchase = sanitizePurchase(req.body);
-    const totalCost = Number((purchase.quantity * purchase.unitCost).toFixed(2));
-
     await client.query("BEGIN");
-    const productResult = await client.query(`SELECT * FROM products WHERE id = $1 FOR UPDATE`, [purchase.productId]);
-    const product = productResult.rows[0];
-    if (!product) {
-      await client.query("ROLLBACK");
-      res.status(404).json({ error: "Producto no encontrado" });
+    const result = await applyPurchase(client, purchase, req.user.id);
+    await client.query("COMMIT");
+    res.status(201).json({
+      purchase: purchaseDto({ ...result.purchase, created_by_name: req.user.name }),
+      product: productDto(result.product)
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/purchases/bulk", authRequired, stockAccessRequired, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const supplier = purchaseSupplierTypes.has(req.body.supplier) ? req.body.supplier : "";
+    const note = String(req.body.note || "").trim().slice(0, 180);
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    if (!supplier) {
+      res.status(400).json({ error: "El proveedor es obligatorio" });
+      return;
+    }
+    if (!items.length) {
+      res.status(400).json({ error: "Agrega al menos un producto" });
       return;
     }
 
-    const inserted = await client.query(
-      `INSERT INTO purchase_entries
-       (product_id, product_name, sku, category, subcategory, supplier, quantity, unit_cost, total_cost, note, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING *`,
-      [
-        product.id,
-        product.name,
-        product.sku,
-        product.category,
-        product.subcategory || "",
-        purchase.supplier,
-        purchase.quantity,
-        purchase.unitCost,
-        totalCost,
-        purchase.note,
-        req.user.id
-      ]
-    );
+    const purchases = items.map((item) => sanitizePurchase({ ...item, supplier, note }));
+    await client.query("BEGIN");
 
-    const updated = await client.query(
-      `UPDATE products
-       SET stock = stock + $1, supplier = $2, cost = $3, updated_at = now()
-       WHERE id = $4
-       RETURNING *`,
-      [purchase.quantity, purchase.supplier, purchase.unitCost, product.id]
-    );
-    await recordMovement(
-      client,
-      updated.rows[0],
-      purchase.quantity,
-      `Compra a ${purchase.supplier}`,
-      req.user.id,
-      null,
-      "compra",
-      purchase.unitCost
-    );
+    const savedPurchases = [];
+    const updatedProducts = [];
+    for (const purchase of purchases) {
+      const result = await applyPurchase(client, purchase, req.user.id);
+      savedPurchases.push(result.purchase);
+      updatedProducts.push(result.product);
+    }
 
     await client.query("COMMIT");
     res.status(201).json({
-      purchase: purchaseDto({ ...inserted.rows[0], created_by_name: req.user.name }),
-      product: productDto(updated.rows[0])
+      purchases: savedPurchases.map((row) => purchaseDto({ ...row, created_by_name: req.user.name })),
+      products: updatedProducts.map(productDto),
+      summary: {
+        totalEntries: savedPurchases.length,
+        totalUnits: savedPurchases.reduce((sum, row) => sum + Number(row.quantity || 0), 0),
+        totalCost: savedPurchases.reduce((sum, row) => sum + Number(row.total_cost || 0), 0)
+      }
     });
   } catch (error) {
     await client.query("ROLLBACK");
