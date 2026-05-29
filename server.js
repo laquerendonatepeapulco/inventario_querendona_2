@@ -42,6 +42,7 @@ const movementTypeLabels = {
 };
 
 const detailedExitTypes = new Set(["venta", "merma", "danado", "consumo_interno", "ajuste"]);
+const supplierTypes = new Set(["Proveedor local", "Proveedor Externo"]);
 const shiftExitAlertShifts = [
   {
     key: "turno_1",
@@ -119,6 +120,7 @@ function movementDto(row) {
     movementTypeLabel: movementTypeLabel(movementType),
     unitPrice,
     unitCost,
+    supplierType: row.supplier_type || "Proveedor local",
     totalValue: unitPrice === null ? null : units * unitPrice,
     totalCost: unitCost === null ? null : units * unitCost,
     note: displayMovementNote(row.note, movementType),
@@ -1184,6 +1186,7 @@ function exitReportDto(row) {
     subcategory: row.subcategory || "",
     movementType,
     movementTypeLabel: movementTypeLabel(movementType),
+    supplierType: row.supplier_type || "Proveedor local",
     note: displayMovementNote(row.note, movementType),
     quantity: Number(row.quantity),
     unitsOut: Number(row.units_out),
@@ -1238,6 +1241,7 @@ async function loadExitReport(from, to) {
        COALESCE(movements.unit_price, products.price, 0)::numeric AS unit_price,
        (ABS(movements.quantity) * COALESCE(movements.unit_price, products.price, 0))::numeric AS total,
        movements.movement_type,
+       movements.supplier_type,
        movements.note,
        users.name AS created_by_name,
        movements.created_at
@@ -1263,7 +1267,7 @@ async function buildExitReportWorkbook(report) {
   const sheet = workbook.addWorksheet("Uso de insumos");
   sheet.properties.defaultRowHeight = 20;
 
-  sheet.mergeCells("A1:K1");
+  sheet.mergeCells("A1:L1");
   sheet.getCell("A1").value = "Reporte de uso de insumos - Inventario La Querendona";
   sheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
   sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF156B73" } };
@@ -1282,6 +1286,7 @@ async function buildExitReportWorkbook(report) {
     "Categoria",
     "Subcategoria",
     "Tipo",
+    "Proveedor",
     "Motivo",
     "Cantidad utilizada",
     "Precio unitario",
@@ -1299,6 +1304,7 @@ async function buildExitReportWorkbook(report) {
       item.category,
       item.subcategory,
       item.movementTypeLabel,
+      item.supplierType,
       item.note,
       item.unitsOut,
       item.unitPrice,
@@ -1307,12 +1313,12 @@ async function buildExitReportWorkbook(report) {
     ]);
   });
 
-  const totalRow = sheet.addRow(["", "", "", "", "", "", "TOTAL", report.summary.totalUnits, "", report.summary.totalValue, ""]);
+  const totalRow = sheet.addRow(["", "", "", "", "", "", "", "TOTAL", report.summary.totalUnits, "", report.summary.totalValue, ""]);
   totalRow.font = { bold: true };
 
   sheet.getColumn(1).numFmt = "dd/mm/yyyy hh:mm";
-  sheet.getColumn(9).numFmt = '"$"#,##0.00';
   sheet.getColumn(10).numFmt = '"$"#,##0.00';
+  sheet.getColumn(11).numFmt = '"$"#,##0.00';
   sheet.getColumn(1).width = 22;
   sheet.getColumn(2).width = 28;
   sheet.getColumn(3).width = 18;
@@ -1323,11 +1329,12 @@ async function buildExitReportWorkbook(report) {
   sheet.getColumn(8).width = 16;
   sheet.getColumn(9).width = 16;
   sheet.getColumn(10).width = 16;
-  sheet.getColumn(11).width = 20;
+  sheet.getColumn(11).width = 16;
+  sheet.getColumn(12).width = 20;
   sheet.views = [{ state: "frozen", ySplit: header.number }];
   sheet.autoFilter = {
     from: { row: header.number, column: 1 },
-    to: { row: Math.max(header.number, header.number + report.rows.length), column: 11 }
+    to: { row: Math.max(header.number, header.number + report.rows.length), column: 12 }
   };
 
   const summarySheet = workbook.addWorksheet("Resumen");
@@ -1962,6 +1969,7 @@ async function ensureSchema() {
       unit_price NUMERIC(12, 2),
       unit_cost NUMERIC(12, 2),
       movement_type TEXT NOT NULL DEFAULT 'entrada',
+      supplier_type TEXT NOT NULL DEFAULT 'Proveedor local',
       note TEXT NOT NULL,
       created_by UUID REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -1970,6 +1978,7 @@ async function ensureSchema() {
   await query(`ALTER TABLE movements ADD COLUMN IF NOT EXISTS unit_price NUMERIC(12, 2)`);
   await query(`ALTER TABLE movements ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(12, 2)`);
   await query(`ALTER TABLE movements ADD COLUMN IF NOT EXISTS movement_type TEXT NOT NULL DEFAULT 'entrada'`);
+  await query(`ALTER TABLE movements ADD COLUMN IF NOT EXISTS supplier_type TEXT NOT NULL DEFAULT 'Proveedor local'`);
   await query(`
     UPDATE movements
     SET movement_type = CASE
@@ -2145,14 +2154,15 @@ async function seedProducts() {
   }
 }
 
-async function recordMovement(client, product, quantity, note, userId, unitPrice = null, movementType = null, unitCost = null) {
+async function recordMovement(client, product, quantity, note, userId, unitPrice = null, movementType = null, unitCost = null, supplierType = "Proveedor local") {
   const type = normalizeMovementType(movementType, quantity, note);
   const price = unitPrice === null || unitPrice === undefined ? null : Number(unitPrice);
   const cost = unitCost === null || unitCost === undefined ? null : Number(unitCost);
+  const provider = supplierTypes.has(supplierType) ? supplierType : "Proveedor local";
   await client.query(
-    `INSERT INTO movements (product_id, product_name, sku, quantity, unit_price, unit_cost, movement_type, note, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-    [product.id, product.name, product.sku, quantity, price, cost, type, note, userId]
+    `INSERT INTO movements (product_id, product_name, sku, quantity, unit_price, unit_cost, movement_type, supplier_type, note, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [product.id, product.name, product.sku, quantity, price, cost, type, provider, note, userId]
   );
 }
 
@@ -2590,6 +2600,7 @@ app.post("/api/products/:id/adjust", authRequired, adminRequired, async (req, re
 app.post("/api/products/:id/exit", authRequired, stockAccessRequired, async (req, res, next) => {
   const quantity = Number(req.body.quantity);
   const movementType = normalizeMovementType(req.body.movementType, -1, "");
+  const supplierType = supplierTypes.has(req.body.supplierType) ? req.body.supplierType : "Proveedor local";
   const note = String(req.body.note || defaultExitNote(movementType)).trim().slice(0, 180);
 
   if (!Number.isInteger(quantity) || quantity <= 0) {
@@ -2631,7 +2642,8 @@ app.post("/api/products/:id/exit", authRequired, stockAccessRequired, async (req
       req.user.id,
       Number(product.price),
       movementType,
-      Number(product.cost)
+      Number(product.cost),
+      supplierType
     );
     await client.query("COMMIT");
     let completionNotice = null;

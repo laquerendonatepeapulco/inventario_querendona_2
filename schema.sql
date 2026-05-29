@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS movements (
   unit_price NUMERIC(12, 2),
   unit_cost NUMERIC(12, 2),
   movement_type TEXT NOT NULL DEFAULT 'entrada',
+  supplier_type TEXT NOT NULL DEFAULT 'Proveedor local',
   note TEXT NOT NULL,
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()

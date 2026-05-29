@@ -484,6 +484,13 @@
                 </select>
               </label>
               <label>
+                Proveedor
+                <select id="exitSupplierType" name="supplierType" required>
+                  <option value="Proveedor local">Proveedor local</option>
+                  <option value="Proveedor Externo">Proveedor Externo</option>
+                </select>
+              </label>
+              <label>
                 Cantidad utilizada
                 <input id="exitRegisterQuantity" name="quantity" type="number" min="1" step="1" required />
               </label>
@@ -541,6 +548,7 @@
                   <th>Producto</th>
                   <th>Categoria</th>
                   <th>Tipo</th>
+                  <th>Proveedor</th>
                   <th>Motivo</th>
                   <th>Cantidad</th>
                   <th>Precio</th>
@@ -870,6 +878,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="auth.js?v=20260519-2"></script>
-    <script src="app.js?v=20260527-4"></script>
+    <script src="app.js?v=20260529-1"></script>
   </body>
 </html>

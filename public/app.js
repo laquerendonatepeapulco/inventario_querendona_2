@@ -55,6 +55,7 @@ const els = {
   exitProductSearch: document.querySelector("#exitProductSearch"),
   exitProductOptions: document.querySelector("#exitProductOptions"),
   exitRegisterMovementType: document.querySelector("#exitRegisterMovementType"),
+  exitSupplierType: document.querySelector("#exitSupplierType"),
   exitRegisterQuantity: document.querySelector("#exitRegisterQuantity"),
   exitRegisterNote: document.querySelector("#exitRegisterNote"),
   exitStockPreview: document.querySelector("#exitStockPreview"),
@@ -434,6 +435,7 @@ function renderSession() {
     "#exitProductSearch",
     "#exitProduct",
     "#exitRegisterMovementType",
+    "#exitSupplierType",
     "#exitRegisterQuantity",
     "#exitRegisterNote",
     "#clearExitRegisterForm",
@@ -1525,6 +1527,7 @@ async function saveExitFromSection(event) {
   const product = state.products.find((item) => item.id === els.exitProduct.value);
   const quantity = Number(els.exitRegisterQuantity.value);
   const movementType = els.exitRegisterMovementType.value;
+  const supplierType = els.exitSupplierType.value;
   const note = els.exitRegisterNote.value.trim() || exitTypeNotes[movementType] || "Uso en cocina";
 
   if (!product) {
@@ -1545,7 +1548,7 @@ async function saveExitFromSection(event) {
   const response = await window.Auth.apiFetch(`/api/products/${product.id}/exit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ quantity, movementType, note })
+    body: JSON.stringify({ quantity, movementType, supplierType, note })
   });
   const payload = await response.json();
   if (!response.ok) {
@@ -1578,7 +1581,7 @@ function renderExitReport() {
   if (!canManageStock()) {
     els.exitReportRows.innerHTML = `
       <tr>
-        <td colspan="9">
+        <td colspan="10">
           <div class="empty-state">Tu usuario no puede consultar usos de insumos.</div>
         </td>
       </tr>`;
@@ -1588,7 +1591,7 @@ function renderExitReport() {
   if (!report) {
     els.exitReportRows.innerHTML = `
       <tr>
-        <td colspan="9">
+        <td colspan="10">
           <div class="empty-state">Genera un reporte para ver los insumos utilizados del periodo.</div>
         </td>
       </tr>`;
@@ -1598,7 +1601,7 @@ function renderExitReport() {
   if (!report.rows.length) {
     els.exitReportRows.innerHTML = `
       <tr>
-        <td colspan="9">
+        <td colspan="10">
           <div class="empty-state">No hay usos de insumos registrados en este rango de fechas.</div>
         </td>
       </tr>`;
@@ -1610,11 +1613,11 @@ function renderExitReport() {
     row.className = "mobile-collapsible-row";
     const movementLabel = item.movementTypeLabel || movementTypeLabels[item.movementType] || "Uso en cocina";
     row.innerHTML = `
-      <td class="mobile-row-summary" colspan="9">
+      <td class="mobile-row-summary" colspan="10">
         <button class="mobile-row-toggle" type="button" data-action="toggle-exit-row" aria-expanded="false" aria-label="Ver detalle de ${escapeHtml(item.productName)}">
           <span>
             <strong>${escapeHtml(item.productName)}</strong>
-            <small>${formatDate(item.date)} · ${escapeHtml(movementLabel)}</small>
+            <small>${formatDate(item.date)} · ${escapeHtml(movementLabel)} · ${escapeHtml(item.supplierType || "Proveedor local")}</small>
           </span>
           <span class="mobile-row-total">
             <strong>${formatter.format(item.total)}</strong>
@@ -1627,6 +1630,7 @@ function renderExitReport() {
       <td data-label="Producto">${escapeHtml(item.productName)}</td>
       <td data-label="Categoria">${escapeHtml(formatCategoryPath(item))}</td>
       <td data-label="Tipo">${escapeHtml(movementLabel)}</td>
+      <td data-label="Proveedor">${escapeHtml(item.supplierType || "Proveedor local")}</td>
       <td data-label="Motivo">${escapeHtml(item.note)}</td>
       <td data-label="Cantidad">${item.unitsOut}</td>
       <td data-label="Precio">${formatter.format(item.unitPrice)}</td>
