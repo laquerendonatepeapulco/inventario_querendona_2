@@ -83,7 +83,6 @@ const els = {
   purchaseEntries: document.querySelector("#purchaseEntries"),
   purchaseSuppliers: document.querySelector("#purchaseSuppliers"),
   purchaseRows: document.querySelector("#purchaseRows"),
-  supplierOptions: document.querySelector("#supplierOptions"),
   profitStart: document.querySelector("#profitStart"),
   profitEnd: document.querySelector("#profitEnd"),
   profitIncome: document.querySelector("#profitIncome"),
@@ -960,20 +959,6 @@ function renderPurchaseOptions() {
     els.purchaseProduct.value = "";
   }
 
-  const suppliers = new Set();
-  state.products.forEach((product) => {
-    if (product.supplier) suppliers.add(product.supplier);
-  });
-  state.purchaseReport?.rows?.forEach((purchase) => {
-    if (purchase.supplier) suppliers.add(purchase.supplier);
-  });
-
-  els.supplierOptions.innerHTML = "";
-  [...suppliers].sort((a, b) => a.localeCompare(b, "es")).forEach((supplier) => {
-    const option = document.createElement("option");
-    option.value = supplier;
-    els.supplierOptions.append(option);
-  });
   renderPurchaseReportProductFilter();
 }
 
@@ -1030,7 +1015,7 @@ function fillPurchaseDefaults() {
     return;
   }
 
-  els.purchaseSupplier.value = product.supplier || els.purchaseSupplier.value;
+  els.purchaseSupplier.value = normalizePurchaseSupplier(product.supplier || els.purchaseSupplier.value);
   els.purchaseUnitCost.value = Number(product.cost || 0).toFixed(2);
   if (!els.purchaseQuantity.value) els.purchaseQuantity.value = 1;
   updatePurchaseTotal();
@@ -1042,6 +1027,10 @@ function updatePurchaseTotal() {
   const unitCost = Number(els.purchaseUnitCost.value || 0);
   const total = Number.isFinite(quantity) && Number.isFinite(unitCost) ? quantity * unitCost : 0;
   els.purchaseTotal.textContent = formatter.format(Math.max(total, 0));
+}
+
+function normalizePurchaseSupplier(value) {
+  return value === "Proveedor Externo" ? "Proveedor Externo" : "Proveedor Local";
 }
 
 function renderExitOptions() {

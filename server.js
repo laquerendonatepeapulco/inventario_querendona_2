@@ -43,6 +43,7 @@ const movementTypeLabels = {
 
 const detailedExitTypes = new Set(["venta", "merma", "danado", "consumo_interno", "ajuste"]);
 const supplierTypes = new Set(["Proveedor local", "Proveedor Externo"]);
+const purchaseSupplierTypes = new Set(["Proveedor Local", "Proveedor Externo"]);
 const shiftExitAlertShifts = [
   {
     key: "turno_1",
@@ -2169,7 +2170,7 @@ async function recordMovement(client, product, quantity, note, userId, unitPrice
 function sanitizePurchase(input) {
   const purchase = {
     productId: String(input.productId || "").trim(),
-    supplier: String(input.supplier || "").trim(),
+    supplier: purchaseSupplierTypes.has(input.supplier) ? input.supplier : "",
     quantity: Number(input.quantity),
     unitCost: Number(input.unitCost),
     note: String(input.note || "").trim().slice(0, 180)
