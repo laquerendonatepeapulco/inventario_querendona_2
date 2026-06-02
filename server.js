@@ -148,6 +148,7 @@ function movementDto(row) {
     unitPrice,
     unitCost,
     supplierType: row.supplier_type || "Proveedor local",
+    measureUnit: row.measure_unit || "Pieza",
     totalValue: unitPrice === null ? null : units * unitPrice,
     totalCost: unitCost === null ? null : units * unitCost,
     note: displayMovementNote(row.note, movementType),
@@ -1219,6 +1220,7 @@ function exitReportDto(row) {
     movementType,
     movementTypeLabel: movementTypeLabel(movementType),
     supplierType: row.supplier_type || "Proveedor local",
+    measureUnit: row.measure_unit || "Pieza",
     note: displayMovementNote(row.note, movementType),
     quantity: Number(row.quantity),
     unitsOut: Number(row.units_out),
@@ -1274,6 +1276,7 @@ async function loadExitReport(from, to) {
        (ABS(movements.quantity) * COALESCE(movements.unit_price, products.price, 0))::numeric AS total,
        movements.movement_type,
        movements.supplier_type,
+       movements.measure_unit,
        movements.note,
        users.name AS created_by_name,
        movements.created_at
@@ -1299,7 +1302,7 @@ async function buildExitReportWorkbook(report) {
   const sheet = workbook.addWorksheet("Uso de insumos");
   sheet.properties.defaultRowHeight = 20;
 
-  sheet.mergeCells("A1:L1");
+  sheet.mergeCells("A1:M1");
   sheet.getCell("A1").value = "Reporte de uso de insumos - Inventario La Querendona";
   sheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
   sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF156B73" } };
@@ -1321,6 +1324,7 @@ async function buildExitReportWorkbook(report) {
     "Proveedor",
     "Motivo",
     "Cantidad utilizada",
+    "Unidad",
     "Precio unitario",
     "Total",
     "Usuario"
@@ -1339,18 +1343,19 @@ async function buildExitReportWorkbook(report) {
       item.supplierType,
       item.note,
       item.unitsOut,
+      item.measureUnit,
       item.unitPrice,
       item.total,
       item.userName
     ]);
   });
 
-  const totalRow = sheet.addRow(["", "", "", "", "", "", "", "TOTAL", report.summary.totalUnits, "", report.summary.totalValue, ""]);
+  const totalRow = sheet.addRow(["", "", "", "", "", "", "", "TOTAL", report.summary.totalUnits, "", "", report.summary.totalValue, ""]);
   totalRow.font = { bold: true };
 
   sheet.getColumn(1).numFmt = "dd/mm/yyyy hh:mm";
-  sheet.getColumn(10).numFmt = '"$"#,##0.00';
   sheet.getColumn(11).numFmt = '"$"#,##0.00';
+  sheet.getColumn(12).numFmt = '"$"#,##0.00';
   sheet.getColumn(1).width = 22;
   sheet.getColumn(2).width = 28;
   sheet.getColumn(3).width = 18;
@@ -1362,11 +1367,12 @@ async function buildExitReportWorkbook(report) {
   sheet.getColumn(9).width = 16;
   sheet.getColumn(10).width = 16;
   sheet.getColumn(11).width = 16;
-  sheet.getColumn(12).width = 20;
+  sheet.getColumn(12).width = 16;
+  sheet.getColumn(13).width = 20;
   sheet.views = [{ state: "frozen", ySplit: header.number }];
   sheet.autoFilter = {
     from: { row: header.number, column: 1 },
-    to: { row: Math.max(header.number, header.number + report.rows.length), column: 12 }
+    to: { row: Math.max(header.number, header.number + report.rows.length), column: 13 }
   };
 
   const summarySheet = workbook.addWorksheet("Resumen");
@@ -2005,6 +2011,7 @@ async function ensureSchema() {
       unit_cost NUMERIC(12, 2),
       movement_type TEXT NOT NULL DEFAULT 'entrada',
       supplier_type TEXT NOT NULL DEFAULT 'Proveedor local',
+      measure_unit TEXT NOT NULL DEFAULT 'Pieza',
       note TEXT NOT NULL,
       created_by UUID REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -2014,6 +2021,7 @@ async function ensureSchema() {
   await query(`ALTER TABLE movements ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(12, 2)`);
   await query(`ALTER TABLE movements ADD COLUMN IF NOT EXISTS movement_type TEXT NOT NULL DEFAULT 'entrada'`);
   await query(`ALTER TABLE movements ADD COLUMN IF NOT EXISTS supplier_type TEXT NOT NULL DEFAULT 'Proveedor local'`);
+  await query(`ALTER TABLE movements ADD COLUMN IF NOT EXISTS measure_unit TEXT NOT NULL DEFAULT 'Pieza'`);
   await query(`
     UPDATE movements
     SET movement_type = CASE
@@ -2191,15 +2199,16 @@ async function seedProducts() {
   }
 }
 
-async function recordMovement(client, product, quantity, note, userId, unitPrice = null, movementType = null, unitCost = null, supplierType = "Proveedor local") {
+async function recordMovement(client, product, quantity, note, userId, unitPrice = null, movementType = null, unitCost = null, supplierType = "Proveedor local", measureUnit = "Pieza") {
   const type = normalizeMovementType(movementType, quantity, note);
   const price = unitPrice === null || unitPrice === undefined ? null : Number(unitPrice);
   const cost = unitCost === null || unitCost === undefined ? null : Number(unitCost);
   const provider = supplierTypes.has(supplierType) ? supplierType : "Proveedor local";
+  const unit = normalizePurchaseMeasureUnit(measureUnit);
   await client.query(
-    `INSERT INTO movements (product_id, product_name, sku, quantity, unit_price, unit_cost, movement_type, supplier_type, note, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [product.id, product.name, product.sku, quantity, price, cost, type, provider, note, userId]
+    `INSERT INTO movements (product_id, product_name, sku, quantity, unit_price, unit_cost, movement_type, supplier_type, measure_unit, note, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+    [product.id, product.name, product.sku, quantity, price, cost, type, provider, unit, note, userId]
   );
 }
 
@@ -2300,6 +2309,7 @@ function sanitizeExitUse(input) {
   const exitUse = {
     productId: String(input.productId || "").trim(),
     quantity: Number(input.quantity),
+    measureUnit: normalizePurchaseMeasureUnit(input.measureUnit),
     movementType,
     supplierType: supplierTypes.has(input.supplierType) ? input.supplierType : "Proveedor local",
     note: String(input.note || defaultExitNote(movementType)).trim().slice(0, 180)
@@ -2354,7 +2364,8 @@ async function applyExitUse(client, exitUse, userId) {
     Number(product.price),
     exitUse.movementType,
     Number(product.cost),
-    exitUse.supplierType
+    exitUse.supplierType,
+    exitUse.measureUnit
   );
 
   return productDto(updated.rows[0]);

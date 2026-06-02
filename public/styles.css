@@ -1080,7 +1080,8 @@ tbody tr:hover {
   margin: 18px 0 14px;
 }
 
-#purchaseForm .form-grid {
+#purchaseForm .form-grid,
+#exitRegisterForm .form-grid {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(180px, 0.6fr);
 }
 
@@ -1426,6 +1427,7 @@ label {
   .report-metrics,
   .form-grid,
   #purchaseForm .form-grid,
+  #exitRegisterForm .form-grid,
   .quick-stat-grid,
   .quick-meta-grid,
   .quick-activity-grid {

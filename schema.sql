@@ -46,10 +46,13 @@ CREATE TABLE IF NOT EXISTS movements (
   unit_cost NUMERIC(12, 2),
   movement_type TEXT NOT NULL DEFAULT 'entrada',
   supplier_type TEXT NOT NULL DEFAULT 'Proveedor local',
+  measure_unit TEXT NOT NULL DEFAULT 'Pieza',
   note TEXT NOT NULL,
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE movements ADD COLUMN IF NOT EXISTS measure_unit TEXT NOT NULL DEFAULT 'Pieza';
 
 CREATE TABLE IF NOT EXISTS purchase_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

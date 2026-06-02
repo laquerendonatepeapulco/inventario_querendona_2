@@ -56,6 +56,7 @@ const els = {
   exitProduct: document.querySelector("#exitProduct"),
   exitProductSearch: document.querySelector("#exitProductSearch"),
   exitProductOptions: document.querySelector("#exitProductOptions"),
+  exitMeasureUnit: document.querySelector("#exitMeasureUnit"),
   exitRegisterMovementType: document.querySelector("#exitRegisterMovementType"),
   exitSupplierType: document.querySelector("#exitSupplierType"),
   exitRegisterQuantity: document.querySelector("#exitRegisterQuantity"),
@@ -102,6 +103,7 @@ const els = {
   bulkExitSupplierType: document.querySelector("#bulkExitSupplierType"),
   bulkExitCategory: document.querySelector("#bulkExitCategory"),
   bulkExitProduct: document.querySelector("#bulkExitProduct"),
+  bulkExitMeasureUnit: document.querySelector("#bulkExitMeasureUnit"),
   bulkExitQuantity: document.querySelector("#bulkExitQuantity"),
   bulkExitItems: document.querySelector("#bulkExitItems"),
   bulkExitCount: document.querySelector("#bulkExitCount"),
@@ -124,6 +126,7 @@ const els = {
   exitProductId: document.querySelector("#exitProductId"),
   exitProductName: document.querySelector("#exitProductName"),
   exitMovementType: document.querySelector("#exitMovementType"),
+  exitModalMeasureUnit: document.querySelector("#exitModalMeasureUnit"),
   exitQuantity: document.querySelector("#exitQuantity"),
   exitNote: document.querySelector("#exitNote"),
   form: document.querySelector("#productForm"),
@@ -503,6 +506,7 @@ function renderSession() {
     "#bulkExitSupplierType",
     "#bulkExitCategory",
     "#bulkExitProduct",
+    "#bulkExitMeasureUnit",
     "#bulkExitQuantity",
     "#bulkExitNote",
     "#addBulkExitItem",
@@ -512,7 +516,9 @@ function renderSession() {
     "#exitCategory",
     "#exitProductSearch",
     "#exitProduct",
+    "#exitMeasureUnit",
     "#exitRegisterMovementType",
+    "#exitModalMeasureUnit",
     "#exitSupplierType",
     "#exitRegisterQuantity",
     "#exitRegisterNote",
@@ -1431,6 +1437,7 @@ function addBulkExitItem() {
   }
 
   const existing = bulkExitItems.find((item) => item.productId === product.id);
+  const measureUnit = els.bulkExitMeasureUnit.value || "Pieza";
   const nextQuantity = existing ? existing.quantity + quantity : quantity;
   if (nextQuantity > Number(product.stock)) {
     showToast("La lista supera el stock disponible de ese producto.");
@@ -1438,6 +1445,10 @@ function addBulkExitItem() {
   }
 
   if (existing) {
+    if ((existing.measureUnit || "Pieza") !== measureUnit) {
+      showToast("Ese producto ya esta en la lista con otra unidad.");
+      return;
+    }
     existing.quantity = nextQuantity;
   } else {
     bulkExitItems.push({
@@ -1448,6 +1459,7 @@ function addBulkExitItem() {
       subcategory: product.subcategory || "",
       stock: Number(product.stock || 0),
       price: Number(product.price || 0),
+      measureUnit,
       quantity
     });
   }
@@ -1471,7 +1483,7 @@ function renderBulkExitItems() {
   }
 
   els.bulkExitItems.innerHTML = bulkExitItems.map((item, index) => `
-    <article class="bulk-purchase-item">
+    <article class="bulk-purchase-item bulk-purchase-entry-item">
       <div>
         <strong>${escapeHtml(item.productName)}</strong>
         <small>${escapeHtml(item.sku)} · ${escapeHtml(formatCategoryPath(item))} · stock disponible ${formatUnits(item.stock)}</small>
@@ -1480,6 +1492,10 @@ function renderBulkExitItems() {
         Cantidad
         <input type="number" min="1" max="${item.stock}" step="1" value="${item.quantity}" data-bulk-exit-index="${index}" />
       </label>
+      <div>
+        <strong>${escapeHtml(item.measureUnit || "Pieza")}</strong>
+        <small>Unidad</small>
+      </div>
       <div>
         <strong>${formatter.format(item.price * item.quantity)}</strong>
         <small>Valor estimado</small>
@@ -1549,6 +1565,7 @@ async function saveBulkExit() {
     note: els.bulkExitNote.value.trim() || exitTypeNotes[movementType] || "Uso en cocina",
     items: bulkExitItems.map((item) => ({
       productId: item.productId,
+      measureUnit: item.measureUnit || "Pieza",
       quantity: item.quantity
     }))
   };
@@ -2064,6 +2081,7 @@ async function saveExitFromSection(event) {
   const quantity = Number(els.exitRegisterQuantity.value);
   const movementType = els.exitRegisterMovementType.value;
   const supplierType = els.exitSupplierType.value;
+  const measureUnit = els.exitMeasureUnit.value || "Pieza";
   const note = els.exitRegisterNote.value.trim() || exitTypeNotes[movementType] || "Uso en cocina";
 
   if (!product) {
@@ -2084,7 +2102,7 @@ async function saveExitFromSection(event) {
   const response = await window.Auth.apiFetch(`/api/products/${product.id}/exit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ quantity, movementType, supplierType, note })
+    body: JSON.stringify({ quantity, measureUnit, movementType, supplierType, note })
   });
   const payload = await response.json();
   if (!response.ok) {
@@ -2117,7 +2135,7 @@ function renderExitReport() {
   if (!canManageStock()) {
     els.exitReportRows.innerHTML = `
       <tr>
-        <td colspan="10">
+        <td colspan="11">
           <div class="empty-state">Tu usuario no puede consultar usos de insumos.</div>
         </td>
       </tr>`;
@@ -2127,7 +2145,7 @@ function renderExitReport() {
   if (!report) {
     els.exitReportRows.innerHTML = `
       <tr>
-        <td colspan="10">
+        <td colspan="11">
           <div class="empty-state">Genera un reporte para ver los insumos utilizados del periodo.</div>
         </td>
       </tr>`;
@@ -2137,7 +2155,7 @@ function renderExitReport() {
   if (!report.rows.length) {
     els.exitReportRows.innerHTML = `
       <tr>
-        <td colspan="10">
+        <td colspan="11">
           <div class="empty-state">No hay usos de insumos registrados en este rango de fechas.</div>
         </td>
       </tr>`;
@@ -2149,7 +2167,7 @@ function renderExitReport() {
     row.className = "mobile-collapsible-row";
     const movementLabel = item.movementTypeLabel || movementTypeLabels[item.movementType] || "Uso en cocina";
     row.innerHTML = `
-      <td class="mobile-row-summary" colspan="10">
+      <td class="mobile-row-summary" colspan="11">
         <button class="mobile-row-toggle" type="button" data-action="toggle-exit-row" aria-expanded="false" aria-label="Ver detalle de ${escapeHtml(item.productName)}">
           <span>
             <strong>${escapeHtml(item.productName)}</strong>
@@ -2157,7 +2175,7 @@ function renderExitReport() {
           </span>
           <span class="mobile-row-total">
             <strong>${formatter.format(item.total)}</strong>
-            <small>${formatUnits(item.unitsOut)}</small>
+            <small>${escapeHtml(formatMeasureQuantity(item.unitsOut, item.measureUnit))}</small>
           </span>
           <span class="mobile-row-chevron" aria-hidden="true">⌄</span>
         </button>
@@ -2169,6 +2187,7 @@ function renderExitReport() {
       <td data-label="Proveedor">${escapeHtml(item.supplierType || "Proveedor local")}</td>
       <td data-label="Motivo">${escapeHtml(item.note)}</td>
       <td data-label="Cantidad">${item.unitsOut}</td>
+      <td data-label="Unidad">${escapeHtml(item.measureUnit || "Pieza")}</td>
       <td data-label="Precio">${formatter.format(item.unitPrice)}</td>
       <td data-label="Total">${formatter.format(item.total)}</td>
       <td data-label="Usuario">${escapeHtml(item.userName)}</td>
@@ -2532,6 +2551,7 @@ function openExitModal(product) {
   els.exitQuantity.max = product.stock;
   els.exitQuantity.value = product.stock > 0 ? 1 : "";
   els.exitMovementType.value = "venta";
+  els.exitModalMeasureUnit.value = "Pieza";
   els.exitNote.value = exitTypeNotes.venta;
   els.exitModal.classList.add("active");
   els.exitModal.setAttribute("aria-hidden", "false");
@@ -2668,6 +2688,7 @@ async function saveDetailedExit(event) {
   const product = state.products.find((item) => item.id === productId);
   const quantity = Number(els.exitQuantity.value);
   const movementType = els.exitMovementType.value;
+  const measureUnit = els.exitModalMeasureUnit.value || "Pieza";
   const note = els.exitNote.value.trim() || exitTypeNotes[movementType] || "Uso en cocina";
 
   if (!product) {
@@ -2688,7 +2709,7 @@ async function saveDetailedExit(event) {
   const response = await window.Auth.apiFetch(`/api/products/${productId}/exit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ quantity, movementType, note })
+    body: JSON.stringify({ quantity, measureUnit, movementType, note })
   });
   const payload = await response.json();
   if (!response.ok) {
