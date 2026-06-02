@@ -2257,6 +2257,71 @@ async function applyPurchase(client, purchase, userId) {
   };
 }
 
+function sanitizeExitUse(input) {
+  const movementType = normalizeMovementType(input.movementType, -1, "");
+  const exitUse = {
+    productId: String(input.productId || "").trim(),
+    quantity: Number(input.quantity),
+    movementType,
+    supplierType: supplierTypes.has(input.supplierType) ? input.supplierType : "Proveedor local",
+    note: String(input.note || defaultExitNote(movementType)).trim().slice(0, 180)
+  };
+
+  if (!exitUse.productId) {
+    const error = new Error("Selecciona un producto");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!Number.isInteger(exitUse.quantity) || exitUse.quantity <= 0) {
+    const error = new Error("Cantidad invalida");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!detailedExitTypes.has(exitUse.movementType)) {
+    const error = new Error("Tipo de uso invalido");
+    error.status = 400;
+    throw error;
+  }
+
+  return exitUse;
+}
+
+async function applyExitUse(client, exitUse, userId) {
+  const current = await client.query(`SELECT * FROM products WHERE id = $1 FOR UPDATE`, [exitUse.productId]);
+  const product = current.rows[0];
+  if (!product) {
+    const error = new Error("Producto no encontrado");
+    error.status = 404;
+    throw error;
+  }
+
+  if (Number(product.stock) < exitUse.quantity) {
+    const error = new Error(`No hay suficiente stock para ${product.name}`);
+    error.status = 400;
+    throw error;
+  }
+
+  const updated = await client.query(
+    `UPDATE products SET stock = stock - $1, updated_at = now() WHERE id = $2 RETURNING *`,
+    [exitUse.quantity, product.id]
+  );
+  await recordMovement(
+    client,
+    updated.rows[0],
+    -exitUse.quantity,
+    exitUse.note || defaultExitNote(exitUse.movementType),
+    userId,
+    Number(product.price),
+    exitUse.movementType,
+    Number(product.cost),
+    exitUse.supplierType
+  );
+
+  return productDto(updated.rows[0]);
+}
+
 async function authRequired(req, res, next) {
   const header = req.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
@@ -2653,53 +2718,11 @@ app.post("/api/products/:id/adjust", authRequired, adminRequired, async (req, re
 });
 
 app.post("/api/products/:id/exit", authRequired, stockAccessRequired, async (req, res, next) => {
-  const quantity = Number(req.body.quantity);
-  const movementType = normalizeMovementType(req.body.movementType, -1, "");
-  const supplierType = supplierTypes.has(req.body.supplierType) ? req.body.supplierType : "Proveedor local";
-  const note = String(req.body.note || defaultExitNote(movementType)).trim().slice(0, 180);
-
-  if (!Number.isInteger(quantity) || quantity <= 0) {
-    res.status(400).json({ error: "Cantidad invalida" });
-    return;
-  }
-
-  if (!detailedExitTypes.has(movementType)) {
-    res.status(400).json({ error: "Tipo de uso invalido" });
-    return;
-  }
-
   const client = await pool.connect();
   try {
+    const exitUse = sanitizeExitUse({ ...req.body, productId: req.params.id });
     await client.query("BEGIN");
-    const current = await client.query(`SELECT * FROM products WHERE id = $1 FOR UPDATE`, [req.params.id]);
-    const product = current.rows[0];
-    if (!product) {
-      await client.query("ROLLBACK");
-      res.status(404).json({ error: "Producto no encontrado" });
-      return;
-    }
-
-    if (Number(product.stock) < quantity) {
-      await client.query("ROLLBACK");
-      res.status(400).json({ error: "No hay suficiente stock para registrar ese uso" });
-      return;
-    }
-
-    const updated = await client.query(
-      `UPDATE products SET stock = stock - $1, updated_at = now() WHERE id = $2 RETURNING *`,
-      [quantity, req.params.id]
-    );
-    await recordMovement(
-      client,
-      updated.rows[0],
-      -quantity,
-      note || defaultExitNote(movementType),
-      req.user.id,
-      Number(product.price),
-      movementType,
-      Number(product.cost),
-      supplierType
-    );
+    const product = await applyExitUse(client, exitUse, req.user.id);
     await client.query("COMMIT");
     let completionNotice = null;
     if (req.user.role === "staff") {
@@ -2713,7 +2736,57 @@ app.post("/api/products/:id/exit", authRequired, stockAccessRequired, async (req
         };
       }
     }
-    res.json({ product: productDto(updated.rows[0]), completionNotice });
+    res.json({ product, completionNotice });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/exits/bulk", authRequired, stockAccessRequired, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const movementType = normalizeMovementType(req.body.movementType, -1, "");
+    const supplierType = supplierTypes.has(req.body.supplierType) ? req.body.supplierType : "Proveedor local";
+    const note = String(req.body.note || defaultExitNote(movementType)).trim().slice(0, 180);
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    if (!items.length) {
+      res.status(400).json({ error: "Agrega al menos un producto" });
+      return;
+    }
+
+    const exits = items.map((item) => sanitizeExitUse({ ...item, movementType, supplierType, note }));
+    await client.query("BEGIN");
+
+    const updatedProducts = [];
+    for (const exitUse of exits) {
+      const product = await applyExitUse(client, exitUse, req.user.id);
+      updatedProducts.push(product);
+    }
+
+    await client.query("COMMIT");
+    let completionNotice = null;
+    if (req.user.role === "staff") {
+      try {
+        completionNotice = await notifyShiftExitCompletionForUser(req.user.id);
+      } catch (error) {
+        console.warn("No se pudo avisar que la salida grande ya fue registrada:", error.message);
+        completionNotice = {
+          skipped: "notification_failed",
+          error: publicNotificationError(error.message)
+        };
+      }
+    }
+    res.status(201).json({
+      products: updatedProducts,
+      completionNotice,
+      summary: {
+        totalEntries: exits.length,
+        totalUnits: exits.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+      }
+    });
   } catch (error) {
     await client.query("ROLLBACK");
     next(error);

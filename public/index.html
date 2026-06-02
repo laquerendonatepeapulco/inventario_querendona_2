@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Inventario "La Querendona"</title>
     <link rel="icon" href="img/logo_pestaña.png" type="image/png">
-    <link rel="stylesheet" href="styles.css?v=20260529-1" />
+    <link rel="stylesheet" href="styles.css?v=20260602-1" />
   </head>
   <body>
     <div class="app-shell">
@@ -449,7 +449,7 @@
               <p class="eyebrow">Uso de insumos</p>
               <h2 id="exitsTitle">Insumos utilizados</h2>
             </div>
-            <button id="downloadExitReport" class="primary-button" type="button">Descargar Excel</button>
+            <button id="openBulkExitModal" class="primary-button" type="button">Agregar Salidas Grandes</button>
           </div>
 
           <form id="exitRegisterForm" class="workspace-section purchase-form">
@@ -518,6 +518,7 @@
               <input id="exitEnd" type="date" />
             </label>
             <button id="loadExitReport" class="ghost-button" type="button">Generar reporte</button>
+            <button id="downloadExitReport" class="ghost-button" type="button">Descargar Excel</button>
           </section>
 
           <div class="metrics-grid report-metrics">
@@ -819,6 +820,70 @@
       </section>
     </div>
 
+    <div id="bulkExitModal" class="modal-backdrop" aria-hidden="true">
+      <section class="modal bulk-purchase-modal" aria-labelledby="bulkExitTitle">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Salida grande</p>
+            <h2 id="bulkExitTitle">Carga masiva de salidas</h2>
+          </div>
+          <button id="closeBulkExitModal" class="icon-button" type="button" title="Cerrar">×</button>
+        </div>
+        <p class="modal-copy">Agrega varios insumos utilizados a la lista y descuenta todo en una sola captura.</p>
+        <div class="form-grid">
+          <label>
+            Tipo de uso
+            <select id="bulkExitMovementType" required>
+              <option value="venta">Uso en cocina</option>
+              <option value="merma">Merma</option>
+              <option value="danado">Producto dañado</option>
+              <option value="consumo_interno">Consumo interno</option>
+              <option value="ajuste">Ajuste de inventario</option>
+            </select>
+          </label>
+          <label>
+            Proveedor
+            <select id="bulkExitSupplierType" required>
+              <option value="Proveedor local">Proveedor local</option>
+              <option value="Proveedor Externo">Proveedor Externo</option>
+            </select>
+          </label>
+          <label>
+            Categoria
+            <select id="bulkExitCategory" aria-label="Filtrar productos por categoria">
+              <option value="all">Todas las categorias</option>
+            </select>
+          </label>
+          <label>
+            Producto
+            <select id="bulkExitProduct">
+              <option value="">Selecciona producto</option>
+            </select>
+          </label>
+          <label>
+            Cantidad utilizada
+            <input id="bulkExitQuantity" type="number" min="1" step="1" />
+          </label>
+        </div>
+        <div class="modal-actions bulk-add-actions">
+          <button id="addBulkExitItem" class="ghost-button" type="button">Agregar a lista</button>
+        </div>
+        <div class="bulk-purchase-summary">
+          <span><strong id="bulkExitCount">0</strong> productos en lista</span>
+          <span>Total usado: <strong id="bulkExitTotal">0 uds</strong></span>
+        </div>
+        <div id="bulkExitItems" class="bulk-purchase-list"></div>
+        <label>
+          Nota general
+          <textarea id="bulkExitNote" maxlength="180" rows="3" placeholder="Platillo, area o detalle de los insumos utilizados">Uso en cocina</textarea>
+        </label>
+        <div class="modal-actions">
+          <button id="cancelBulkExit" class="ghost-button" type="button">Cancelar</button>
+          <button id="saveBulkExit" class="primary-button" type="button">Guardar salidas</button>
+        </div>
+      </section>
+    </div>
+
     <div id="productModal" class="modal-backdrop" aria-hidden="true">
       <form id="productForm" class="modal" aria-labelledby="modalTitle">
         <div class="modal-heading">
@@ -939,6 +1004,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="auth.js?v=20260519-2"></script>
-    <script src="app.js?v=20260529-3"></script>
+    <script src="app.js?v=20260602-1"></script>
   </body>
 </html>

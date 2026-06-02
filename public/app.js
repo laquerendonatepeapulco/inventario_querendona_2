@@ -17,6 +17,7 @@ let state = {
 let currentUser = window.Auth.requireSession();
 let activePanel = "dashboard";
 let bulkPurchaseItems = [];
+let bulkExitItems = [];
 
 const els = {
   panels: document.querySelectorAll(".panel"),
@@ -94,6 +95,16 @@ const els = {
   bulkPurchaseCount: document.querySelector("#bulkPurchaseCount"),
   bulkPurchaseTotal: document.querySelector("#bulkPurchaseTotal"),
   bulkPurchaseNote: document.querySelector("#bulkPurchaseNote"),
+  bulkExitModal: document.querySelector("#bulkExitModal"),
+  bulkExitMovementType: document.querySelector("#bulkExitMovementType"),
+  bulkExitSupplierType: document.querySelector("#bulkExitSupplierType"),
+  bulkExitCategory: document.querySelector("#bulkExitCategory"),
+  bulkExitProduct: document.querySelector("#bulkExitProduct"),
+  bulkExitQuantity: document.querySelector("#bulkExitQuantity"),
+  bulkExitItems: document.querySelector("#bulkExitItems"),
+  bulkExitCount: document.querySelector("#bulkExitCount"),
+  bulkExitTotal: document.querySelector("#bulkExitTotal"),
+  bulkExitNote: document.querySelector("#bulkExitNote"),
   profitStart: document.querySelector("#profitStart"),
   profitEnd: document.querySelector("#profitEnd"),
   profitIncome: document.querySelector("#profitIncome"),
@@ -239,6 +250,11 @@ function bindEvents() {
   document.querySelector("#downloadIncomeReport").addEventListener("click", downloadIncomeReport);
   document.querySelector("#loadExitReport").addEventListener("click", loadExitReport);
   document.querySelector("#downloadExitReport").addEventListener("click", downloadExitReport);
+  document.querySelector("#openBulkExitModal").addEventListener("click", openBulkExitModal);
+  document.querySelector("#closeBulkExitModal").addEventListener("click", closeBulkExitModal);
+  document.querySelector("#cancelBulkExit").addEventListener("click", closeBulkExitModal);
+  document.querySelector("#addBulkExitItem").addEventListener("click", addBulkExitItem);
+  document.querySelector("#saveBulkExit").addEventListener("click", saveBulkExit);
   document.querySelector("#clearExitRegisterForm").addEventListener("click", resetExitRegisterForm);
   document.querySelector("#loadComparisonReport").addEventListener("click", loadComparisonReport);
   document.querySelector("#downloadComparisonReport").addEventListener("click", downloadComparisonReport);
@@ -279,6 +295,16 @@ function bindEvents() {
   });
   els.exitProductSearch.addEventListener("input", syncExitProductFromSearch);
   els.exitProductSearch.addEventListener("change", syncExitProductFromSearch);
+  els.bulkExitMovementType.addEventListener("change", () => {
+    els.bulkExitNote.value = exitTypeNotes[els.bulkExitMovementType.value] || "Uso en cocina";
+  });
+  els.bulkExitCategory.addEventListener("change", () => {
+    renderBulkExitProductOptions();
+    fillBulkExitDefaults();
+  });
+  els.bulkExitProduct.addEventListener("change", fillBulkExitDefaults);
+  els.bulkExitItems.addEventListener("change", handleBulkExitItems);
+  els.bulkExitItems.addEventListener("click", handleBulkExitItems);
   els.purchaseCategory.addEventListener("change", () => {
     renderPurchaseOptions();
     fillPurchaseDefaults();
@@ -311,6 +337,9 @@ function bindEvents() {
   els.bulkPurchaseModal.addEventListener("click", (event) => {
     if (event.target === els.bulkPurchaseModal) closeBulkPurchaseModal();
   });
+  els.bulkExitModal.addEventListener("click", (event) => {
+    if (event.target === els.bulkExitModal) closeBulkExitModal();
+  });
 }
 
 async function logout() {
@@ -319,6 +348,7 @@ async function logout() {
   closeQuickProductModal();
   closeExitModal();
   closeBulkPurchaseModal();
+  closeBulkExitModal();
   window.location.href = "login.html";
 }
 
@@ -455,6 +485,15 @@ function renderSession() {
     "#downloadPurchaseReport",
     "#loadExitReport",
     "#downloadExitReport",
+    "#openBulkExitModal",
+    "#bulkExitMovementType",
+    "#bulkExitSupplierType",
+    "#bulkExitCategory",
+    "#bulkExitProduct",
+    "#bulkExitQuantity",
+    "#bulkExitNote",
+    "#addBulkExitItem",
+    "#saveBulkExit",
     "#loadComparisonReport",
     "#downloadComparisonReport",
     "#exitCategory",
@@ -1284,6 +1323,235 @@ async function saveBulkPurchase() {
   state.comparisonReport = null;
   render();
   showToast(`Entrada grande registrada: ${payload.summary?.totalEntries || 0} productos.`);
+}
+
+function openBulkExitModal() {
+  if (!requireStockAccess()) return;
+  renderBulkExitCategoryOptions();
+  renderBulkExitProductOptions();
+  renderBulkExitItems();
+  els.bulkExitModal.classList.add("active");
+  els.bulkExitModal.setAttribute("aria-hidden", "false");
+}
+
+function closeBulkExitModal() {
+  els.bulkExitModal.classList.remove("active");
+  els.bulkExitModal.setAttribute("aria-hidden", "true");
+}
+
+function renderBulkExitCategoryOptions() {
+  if (!els.bulkExitCategory) return;
+  const current = els.bulkExitCategory.value || "all";
+  const categories = [...new Set(state.products
+    .filter((product) => Number(product.stock) > 0)
+    .map((product) => product.category)
+    .filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "es"));
+
+  els.bulkExitCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
+  categories.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    els.bulkExitCategory.append(option);
+  });
+  els.bulkExitCategory.value = categories.includes(current) ? current : "all";
+}
+
+function renderBulkExitProductOptions() {
+  if (!els.bulkExitProduct) return;
+  const selected = els.bulkExitProduct.value;
+  const selectedCategory = els.bulkExitCategory.value;
+  const products = [...state.products]
+    .filter((product) => Number(product.stock) > 0)
+    .filter((product) => selectedCategory === "all" || product.category === selectedCategory)
+    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+
+  els.bulkExitProduct.innerHTML = `<option value="">Selecciona producto</option>`;
+  products.forEach((product) => {
+    const option = document.createElement("option");
+    option.value = product.id;
+    option.textContent = `${product.name} (${formatUnits(product.stock)})`;
+    els.bulkExitProduct.append(option);
+  });
+  els.bulkExitProduct.value = products.some((product) => product.id === selected) ? selected : "";
+}
+
+function fillBulkExitDefaults() {
+  const product = state.products.find((item) => item.id === els.bulkExitProduct.value);
+  if (!product) {
+    els.bulkExitQuantity.removeAttribute("max");
+    return;
+  }
+  if (!els.bulkExitQuantity.value) els.bulkExitQuantity.value = 1;
+  els.bulkExitQuantity.max = String(product.stock);
+}
+
+function addBulkExitItem() {
+  const product = state.products.find((item) => item.id === els.bulkExitProduct.value);
+  const quantity = Number(els.bulkExitQuantity.value);
+
+  if (!product) {
+    showToast("Selecciona un producto para agregarlo.");
+    return;
+  }
+
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    showToast("Captura una cantidad entera mayor a cero.");
+    return;
+  }
+
+  if (quantity > Number(product.stock)) {
+    showToast("No hay suficiente stock para ese producto.");
+    return;
+  }
+
+  const existing = bulkExitItems.find((item) => item.productId === product.id);
+  const nextQuantity = existing ? existing.quantity + quantity : quantity;
+  if (nextQuantity > Number(product.stock)) {
+    showToast("La lista supera el stock disponible de ese producto.");
+    return;
+  }
+
+  if (existing) {
+    existing.quantity = nextQuantity;
+  } else {
+    bulkExitItems.push({
+      productId: product.id,
+      productName: product.name,
+      sku: product.sku,
+      category: product.category,
+      subcategory: product.subcategory || "",
+      stock: Number(product.stock || 0),
+      price: Number(product.price || 0),
+      quantity
+    });
+  }
+
+  els.bulkExitProduct.value = "";
+  els.bulkExitQuantity.value = "";
+  els.bulkExitQuantity.removeAttribute("max");
+  renderBulkExitItems();
+  showToast("Producto agregado a la salida grande.");
+}
+
+function renderBulkExitItems() {
+  if (!els.bulkExitItems) return;
+  const units = bulkExitItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+  els.bulkExitCount.textContent = String(bulkExitItems.length);
+  els.bulkExitTotal.textContent = formatUnits(units);
+
+  if (!bulkExitItems.length) {
+    els.bulkExitItems.innerHTML = `<div class="empty-state">Aun no hay productos en la salida grande.</div>`;
+    return;
+  }
+
+  els.bulkExitItems.innerHTML = bulkExitItems.map((item, index) => `
+    <article class="bulk-purchase-item">
+      <div>
+        <strong>${escapeHtml(item.productName)}</strong>
+        <small>${escapeHtml(item.sku)} · ${escapeHtml(formatCategoryPath(item))} · stock disponible ${formatUnits(item.stock)}</small>
+      </div>
+      <label>
+        Cantidad
+        <input type="number" min="1" max="${item.stock}" step="1" value="${item.quantity}" data-bulk-exit-index="${index}" />
+      </label>
+      <div>
+        <strong>${formatter.format(item.price * item.quantity)}</strong>
+        <small>Valor estimado</small>
+      </div>
+      <button class="icon-button" type="button" title="Quitar producto" data-bulk-exit-remove="${index}">×</button>
+    </article>
+  `).join("");
+}
+
+function handleBulkExitItems(event) {
+  const removeIndex = event.target.closest("[data-bulk-exit-remove]")?.dataset.bulkExitRemove;
+  if (removeIndex !== undefined) {
+    bulkExitItems.splice(Number(removeIndex), 1);
+    renderBulkExitItems();
+    return;
+  }
+
+  const input = event.target.closest("[data-bulk-exit-index]");
+  if (!input) return;
+
+  const index = Number(input.dataset.bulkExitIndex);
+  const item = bulkExitItems[index];
+  if (!item) return;
+
+  const value = Number(input.value);
+  if (Number.isInteger(value) && value > 0 && value <= item.stock) {
+    item.quantity = value;
+    renderBulkExitItems();
+  } else {
+    showToast("La cantidad debe ser valida y no superar el stock.");
+    input.value = item.quantity;
+  }
+}
+
+function syncBulkExitItemsFromInputs() {
+  let valid = true;
+  els.bulkExitItems.querySelectorAll("[data-bulk-exit-index]").forEach((input) => {
+    const index = Number(input.dataset.bulkExitIndex);
+    const item = bulkExitItems[index];
+    if (!item) return;
+
+    const value = Number(input.value);
+    if (Number.isInteger(value) && value > 0 && value <= item.stock) {
+      item.quantity = value;
+    } else {
+      valid = false;
+    }
+  });
+  return valid;
+}
+
+async function saveBulkExit() {
+  if (!requireStockAccess()) return;
+  if (!bulkExitItems.length) {
+    showToast("Agrega al menos un producto a la salida grande.");
+    return;
+  }
+  if (!syncBulkExitItemsFromInputs()) {
+    showToast("Revisa las cantidades de la lista.");
+    return;
+  }
+
+  const movementType = els.bulkExitMovementType.value;
+  const payload = {
+    movementType,
+    supplierType: els.bulkExitSupplierType.value,
+    note: els.bulkExitNote.value.trim() || exitTypeNotes[movementType] || "Uso en cocina",
+    items: bulkExitItems.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity
+    }))
+  };
+
+  const response = await window.Auth.apiFetch("/api/exits/bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json();
+  if (!response.ok) {
+    showToast(result.error || "No se pudo guardar la salida grande.");
+    return;
+  }
+
+  bulkExitItems = [];
+  els.bulkExitNote.value = exitTypeNotes[els.bulkExitMovementType.value] || "Uso en cocina";
+  closeBulkExitModal();
+  await loadRemoteData();
+  state.exitReport = null;
+  state.incomeReport = null;
+  state.profitReport = null;
+  state.comparisonReport = null;
+  render();
+  resetExitRegisterForm();
+  await loadExitReport();
+  showToast(`Salida grande registrada: ${result.summary?.totalEntries || 0} productos.`);
 }
 
 function renderExitOptions() {
