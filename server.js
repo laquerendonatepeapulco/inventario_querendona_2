@@ -44,6 +44,32 @@ const movementTypeLabels = {
 const detailedExitTypes = new Set(["venta", "merma", "danado", "consumo_interno", "ajuste"]);
 const supplierTypes = new Set(["Proveedor local", "Proveedor Externo"]);
 const purchaseSupplierTypes = new Set(["Proveedor Local", "Proveedor Externo"]);
+const purchaseMeasureUnits = new Set([
+  "Pieza",
+  "Kilogramo",
+  "Gramo",
+  "Litro",
+  "Mililitro",
+  "Caja",
+  "Paquete",
+  "Bolsa",
+  "Botella",
+  "Lata",
+  "Garrafon",
+  "Cubeta",
+  "Charola",
+  "Costal",
+  "Bulto",
+  "Manojo",
+  "Rollo",
+  "Docena",
+  "Porcion",
+  "Rebanada",
+  "Barra",
+  "Sobre",
+  "Frasco",
+  "Galon"
+]);
 const shiftExitAlertShifts = [
   {
     key: "turno_1",
@@ -175,6 +201,7 @@ function purchaseDto(row) {
     subcategory: row.subcategory || "",
     supplier: row.supplier,
     quantity: Number(row.quantity),
+    measureUnit: row.measure_unit || "Pieza",
     unitCost: Number(row.unit_cost),
     totalCost: Number(row.total_cost),
     note: row.note || "",
@@ -224,6 +251,10 @@ function defaultExitNote(type) {
     consumo_interno: "Consumo interno",
     ajuste: "Ajuste de inventario"
   }[type] || "Uso en cocina";
+}
+
+function normalizePurchaseMeasureUnit(value) {
+  return purchaseMeasureUnits.has(value) ? value : "Pieza";
 }
 
 function displayMovementNote(note, movementType) {
@@ -1436,7 +1467,7 @@ async function buildPurchaseReportWorkbook(report) {
   const sheet = workbook.addWorksheet("Compras");
   sheet.properties.defaultRowHeight = 20;
 
-  sheet.mergeCells("A1:K1");
+  sheet.mergeCells("A1:L1");
   sheet.getCell("A1").value = "Reporte de entradas y compras - Inventario La Querendona";
   sheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
   sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF156B73" } };
@@ -1463,6 +1494,7 @@ async function buildPurchaseReportWorkbook(report) {
     "Subcategoria",
     "Proveedor",
     "Cantidad",
+    "Unidad",
     "Costo unitario",
     "Total",
     "Nota",
@@ -1480,6 +1512,7 @@ async function buildPurchaseReportWorkbook(report) {
       item.subcategory,
       item.supplier,
       item.quantity,
+      item.measureUnit,
       item.unitCost,
       item.totalCost,
       item.note,
@@ -1487,12 +1520,12 @@ async function buildPurchaseReportWorkbook(report) {
     ]);
   });
 
-  const totalRow = sheet.addRow(["", "", "", "", "", "TOTAL", report.summary.totalUnits, "", report.summary.totalCost, "", ""]);
+  const totalRow = sheet.addRow(["", "", "", "", "", "TOTAL", report.summary.totalUnits, "", "", report.summary.totalCost, "", ""]);
   totalRow.font = { bold: true };
 
   sheet.getColumn(1).numFmt = "dd/mm/yyyy hh:mm";
-  sheet.getColumn(8).numFmt = '"$"#,##0.00';
   sheet.getColumn(9).numFmt = '"$"#,##0.00';
+  sheet.getColumn(10).numFmt = '"$"#,##0.00';
   sheet.getColumn(1).width = 22;
   sheet.getColumn(2).width = 28;
   sheet.getColumn(3).width = 16;
@@ -1502,12 +1535,13 @@ async function buildPurchaseReportWorkbook(report) {
   sheet.getColumn(7).width = 16;
   sheet.getColumn(8).width = 16;
   sheet.getColumn(9).width = 16;
-  sheet.getColumn(10).width = 26;
-  sheet.getColumn(11).width = 20;
+  sheet.getColumn(10).width = 16;
+  sheet.getColumn(11).width = 26;
+  sheet.getColumn(12).width = 20;
   sheet.views = [{ state: "frozen", ySplit: header.number }];
   sheet.autoFilter = {
     from: { row: header.number, column: 1 },
-    to: { row: Math.max(header.number, header.number + report.rows.length), column: 11 }
+    to: { row: Math.max(header.number, header.number + report.rows.length), column: 12 }
   };
 
   const summarySheet = workbook.addWorksheet("Resumen");
@@ -2012,6 +2046,7 @@ async function ensureSchema() {
       subcategory TEXT NOT NULL DEFAULT '',
       supplier TEXT NOT NULL,
       quantity INTEGER NOT NULL CHECK (quantity > 0),
+      measure_unit TEXT NOT NULL DEFAULT 'Pieza',
       unit_cost NUMERIC(12, 2) NOT NULL CHECK (unit_cost >= 0),
       total_cost NUMERIC(12, 2) NOT NULL CHECK (total_cost >= 0),
       note TEXT NOT NULL DEFAULT '',
@@ -2020,6 +2055,7 @@ async function ensureSchema() {
     )
   `);
   await query(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS subcategory TEXT NOT NULL DEFAULT ''`);
+  await query(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS measure_unit TEXT NOT NULL DEFAULT 'Pieza'`);
   await query(`
     CREATE TABLE IF NOT EXISTS stock_alerts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2172,6 +2208,7 @@ function sanitizePurchase(input) {
     productId: String(input.productId || "").trim(),
     supplier: purchaseSupplierTypes.has(input.supplier) ? input.supplier : "",
     quantity: Number(input.quantity),
+    measureUnit: normalizePurchaseMeasureUnit(input.measureUnit),
     unitCost: Number(input.unitCost),
     note: String(input.note || "").trim().slice(0, 180)
   };
@@ -2215,8 +2252,8 @@ async function applyPurchase(client, purchase, userId) {
 
   const inserted = await client.query(
     `INSERT INTO purchase_entries
-     (product_id, product_name, sku, category, subcategory, supplier, quantity, unit_cost, total_cost, note, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     (product_id, product_name, sku, category, subcategory, supplier, quantity, measure_unit, unit_cost, total_cost, note, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      RETURNING *`,
     [
       product.id,
@@ -2226,6 +2263,7 @@ async function applyPurchase(client, purchase, userId) {
       product.subcategory || "",
       purchase.supplier,
       purchase.quantity,
+      purchase.measureUnit,
       purchase.unitCost,
       totalCost,
       purchase.note,
@@ -3199,8 +3237,8 @@ app.post("/api/import", authRequired, adminRequired, async (req, res, next) => {
       const sku = String(item.sku || "").trim().toUpperCase();
       await client.query(
         `INSERT INTO purchase_entries
-         (product_id, product_name, sku, category, subcategory, supplier, quantity, unit_cost, total_cost, note, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, COALESCE($11::timestamptz, now()))`,
+         (product_id, product_name, sku, category, subcategory, supplier, quantity, measure_unit, unit_cost, total_cost, note, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12::timestamptz, now()))`,
         sanitizePurchaseBackup(item, productIdsBySku.get(sku) || null)
       );
     }
@@ -3298,6 +3336,7 @@ function sanitizePurchaseBackup(input, productId) {
   const subcategory = String(input.subcategory || input.subcategory_name || "").trim();
   const supplier = String(input.supplier || "Sin proveedor").trim();
   const quantity = Number(input.quantity);
+  const measureUnit = normalizePurchaseMeasureUnit(input.measureUnit || input.measure_unit);
   const unitCost = Number(input.unitCost ?? input.unit_cost);
   const totalCost = Number(input.totalCost ?? input.total_cost ?? quantity * unitCost);
   const note = String(input.note || "").trim().slice(0, 180);
@@ -3323,7 +3362,7 @@ function sanitizePurchaseBackup(input, productId) {
     throw error;
   }
 
-  return [productId, productName, sku, category, subcategory, supplier, quantity, unitCost, totalCost, note, createdAt];
+  return [productId, productName, sku, category, subcategory, supplier, quantity, measureUnit, unitCost, totalCost, note, createdAt];
 }
 
 app.get("*", (req, res) => {

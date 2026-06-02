@@ -60,12 +60,15 @@ CREATE TABLE IF NOT EXISTS purchase_entries (
   subcategory TEXT NOT NULL DEFAULT '',
   supplier TEXT NOT NULL,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
+  measure_unit TEXT NOT NULL DEFAULT 'Pieza',
   unit_cost NUMERIC(12, 2) NOT NULL CHECK (unit_cost >= 0),
   total_cost NUMERIC(12, 2) NOT NULL CHECK (total_cost >= 0),
   note TEXT NOT NULL DEFAULT '',
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS measure_unit TEXT NOT NULL DEFAULT 'Pieza';
 
 CREATE TABLE IF NOT EXISTS stock_alerts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

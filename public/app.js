@@ -71,6 +71,7 @@ const els = {
   purchaseForm: document.querySelector("#purchaseForm"),
   purchaseCategory: document.querySelector("#purchaseCategory"),
   purchaseProduct: document.querySelector("#purchaseProduct"),
+  purchaseMeasureUnit: document.querySelector("#purchaseMeasureUnit"),
   purchaseSupplier: document.querySelector("#purchaseSupplier"),
   purchaseQuantity: document.querySelector("#purchaseQuantity"),
   purchaseUnitCost: document.querySelector("#purchaseUnitCost"),
@@ -89,6 +90,7 @@ const els = {
   bulkPurchaseSupplier: document.querySelector("#bulkPurchaseSupplier"),
   bulkPurchaseCategory: document.querySelector("#bulkPurchaseCategory"),
   bulkPurchaseProduct: document.querySelector("#bulkPurchaseProduct"),
+  bulkPurchaseMeasureUnit: document.querySelector("#bulkPurchaseMeasureUnit"),
   bulkPurchaseQuantity: document.querySelector("#bulkPurchaseQuantity"),
   bulkPurchaseUnitCost: document.querySelector("#bulkPurchaseUnitCost"),
   bulkPurchaseItems: document.querySelector("#bulkPurchaseItems"),
@@ -475,10 +477,21 @@ function renderSession() {
 
   const stockControls = [
     "#purchaseProduct",
+    "#purchaseMeasureUnit",
     "#purchaseSupplier",
     "#purchaseQuantity",
     "#purchaseUnitCost",
     "#purchaseNote",
+    "#openBulkPurchaseModal",
+    "#bulkPurchaseSupplier",
+    "#bulkPurchaseCategory",
+    "#bulkPurchaseProduct",
+    "#bulkPurchaseMeasureUnit",
+    "#bulkPurchaseQuantity",
+    "#bulkPurchaseUnitCost",
+    "#bulkPurchaseNote",
+    "#addBulkPurchaseItem",
+    "#saveBulkPurchase",
     "#clearPurchaseForm",
     "#savePurchase",
     "#loadPurchaseReport",
@@ -1172,8 +1185,13 @@ function addBulkPurchaseItem() {
     return;
   }
 
+  const measureUnit = els.bulkPurchaseMeasureUnit.value || "Pieza";
   const existing = bulkPurchaseItems.find((item) => item.productId === product.id);
   if (existing) {
+    if ((existing.measureUnit || "Pieza") !== measureUnit) {
+      showToast("Ese producto ya esta en la lista con otra unidad.");
+      return;
+    }
     existing.quantity += quantity;
     existing.unitCost = unitCost;
   } else {
@@ -1184,6 +1202,7 @@ function addBulkPurchaseItem() {
       category: product.category,
       subcategory: product.subcategory || "",
       stock: Number(product.stock || 0),
+      measureUnit,
       quantity,
       unitCost
     });
@@ -1209,7 +1228,7 @@ function renderBulkPurchaseItems() {
   }
 
   els.bulkPurchaseItems.innerHTML = bulkPurchaseItems.map((item, index) => `
-    <article class="bulk-purchase-item">
+    <article class="bulk-purchase-item bulk-purchase-entry-item">
       <div>
         <strong>${escapeHtml(item.productName)}</strong>
         <small>${escapeHtml(item.sku)} · ${escapeHtml(formatCategoryPath(item))} · stock actual ${formatUnits(item.stock)}</small>
@@ -1218,6 +1237,10 @@ function renderBulkPurchaseItems() {
         Cantidad
         <input type="number" min="1" step="1" value="${item.quantity}" data-bulk-index="${index}" data-bulk-field="quantity" />
       </label>
+      <div>
+        <strong>${escapeHtml(item.measureUnit || "Pieza")}</strong>
+        <small>Unidad</small>
+      </div>
       <label>
         Costo
         <input type="number" min="0" step="0.01" value="${Number(item.unitCost).toFixed(2)}" data-bulk-index="${index}" data-bulk-field="unitCost" />
@@ -1296,6 +1319,7 @@ async function saveBulkPurchase() {
     note: els.bulkPurchaseNote.value.trim(),
     items: bulkPurchaseItems.map((item) => ({
       productId: item.productId,
+      measureUnit: item.measureUnit || "Pieza",
       quantity: item.quantity,
       unitCost: item.unitCost
     }))
@@ -1679,7 +1703,7 @@ function renderPurchaseReport() {
   if (!canManageStock()) {
     els.purchaseRows.innerHTML = `
       <tr>
-        <td colspan="8">
+        <td colspan="9">
           <div class="empty-state">Tu usuario no puede registrar ni consultar entradas.</div>
         </td>
       </tr>`;
@@ -1689,7 +1713,7 @@ function renderPurchaseReport() {
   if (!report) {
     els.purchaseRows.innerHTML = `
       <tr>
-        <td colspan="8">
+        <td colspan="9">
           <div class="empty-state">Genera un reporte para ver las compras del periodo.</div>
         </td>
       </tr>`;
@@ -1699,7 +1723,7 @@ function renderPurchaseReport() {
   if (!report.rows.length) {
     els.purchaseRows.innerHTML = `
       <tr>
-        <td colspan="8">
+        <td colspan="9">
           <div class="empty-state">No hay compras registradas en este rango de fechas.</div>
         </td>
       </tr>`;
@@ -1710,7 +1734,7 @@ function renderPurchaseReport() {
     const row = document.createElement("tr");
     row.className = "mobile-collapsible-row";
     row.innerHTML = `
-      <td class="mobile-row-summary" colspan="8">
+      <td class="mobile-row-summary" colspan="9">
         <button class="mobile-row-toggle" type="button" data-action="toggle-purchase-row" aria-expanded="false" aria-label="Ver detalle de ${escapeHtml(purchase.productName)}">
           <span>
             <strong>${escapeHtml(purchase.productName)}</strong>
@@ -1718,7 +1742,7 @@ function renderPurchaseReport() {
           </span>
           <span class="mobile-row-total">
             <strong>${formatter.format(purchase.totalCost)}</strong>
-            <small>${formatUnits(purchase.quantity)}</small>
+            <small>${escapeHtml(formatMeasureQuantity(purchase.quantity, purchase.measureUnit))}</small>
           </span>
           <span class="mobile-row-chevron" aria-hidden="true">⌄</span>
         </button>
@@ -1728,6 +1752,7 @@ function renderPurchaseReport() {
       <td data-label="Categoria">${escapeHtml(formatCategoryPath(purchase))}</td>
       <td data-label="Proveedor">${escapeHtml(purchase.supplier)}</td>
       <td data-label="Cantidad">${purchase.quantity}</td>
+      <td data-label="Unidad">${escapeHtml(purchase.measureUnit || "Pieza")}</td>
       <td data-label="Costo">${formatter.format(purchase.unitCost)}</td>
       <td data-label="Total">${formatter.format(purchase.totalCost)}</td>
       <td data-label="Usuario">${escapeHtml(purchase.createdByName)}</td>
@@ -1751,6 +1776,7 @@ async function savePurchaseFromForm(event) {
   const formData = new FormData(els.purchaseForm);
   const purchase = {
     productId: formData.get("productId"),
+    measureUnit: formData.get("measureUnit"),
     supplier: formData.get("supplier").trim(),
     quantity: Number(formData.get("quantity")),
     unitCost: Number(formData.get("unitCost")),
@@ -2872,6 +2898,11 @@ function formatDateInput(value) {
 function formatUnits(value) {
   const units = Number(value);
   return `${units} ${units === 1 ? "unidad" : "unidades"}`;
+}
+
+function formatMeasureQuantity(value, measureUnit) {
+  const unit = measureUnit || "Pieza";
+  return `${Number(value)} ${unit}`;
 }
 
 function signedNumber(value) {
