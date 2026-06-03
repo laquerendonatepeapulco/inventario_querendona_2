@@ -48,6 +48,7 @@ const purchaseMeasureUnits = new Set([
   "Pieza",
   "Kilogramo",
   "Gramo",
+  "Onza",
   "Litro",
   "Mililitro",
   "Caja",
