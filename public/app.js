@@ -20,7 +20,7 @@ let bulkPurchaseItems = [];
 let bulkExitItems = [];
 
 const DEFAULT_SUPPLIERS = ["Proveedor local", "Proveedor externo"];
-const BASE_CATEGORIES = ["Productos de Limpieza"];
+const BASE_CATEGORIES = ["Agua", "Productos de Limpieza"];
 const CATEGORY_SUPPLIERS = {
   "refresco": ["Coca cola", "Jarritos", "Pepsi", "Peñafiel"],
   "refreso": ["Coca cola", "Jarritos", "Pepsi", "Peñafiel"],
