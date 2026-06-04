@@ -652,6 +652,18 @@ function filteredProducts() {
       product.subcategory
     ].join(" ")).includes(search);
     return categoryMatch && subcategoryMatch && statusMatch && searchMatch;
+  }).sort(compareProductsAlphabetically);
+}
+
+function compareProductsAlphabetically(a, b) {
+  const nameOrder = String(a.name || "").localeCompare(String(b.name || ""), "es", {
+    numeric: true,
+    sensitivity: "base"
+  });
+  if (nameOrder !== 0) return nameOrder;
+  return String(a.sku || "").localeCompare(String(b.sku || ""), "es", {
+    numeric: true,
+    sensitivity: "base"
   });
 }
 

@@ -2558,7 +2558,7 @@ app.post("/api/users/:id/reset-password", authRequired, adminRequired, async (re
 
 app.get("/api/products", authRequired, async (req, res, next) => {
   try {
-    const result = await query(`SELECT * FROM products ORDER BY updated_at DESC, name ASC`);
+    const result = await query(`SELECT * FROM products ORDER BY name ASC, sku ASC`);
     res.json({ products: result.rows.map(productDto) });
   } catch (error) {
     next(error);
