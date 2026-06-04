@@ -20,6 +20,7 @@ let bulkPurchaseItems = [];
 let bulkExitItems = [];
 
 const DEFAULT_SUPPLIERS = ["Proveedor local", "Proveedor externo"];
+const BASE_CATEGORIES = ["Productos de Limpieza"];
 const CATEGORY_SUPPLIERS = {
   "refresco": ["Coca cola", "Jarritos", "Pepsi", "Peñafiel"],
   "refreso": ["Coca cola", "Jarritos", "Pepsi", "Peñafiel"],
@@ -695,6 +696,13 @@ function compareProductsAlphabetically(a, b) {
   });
 }
 
+function getCategoryOptions(products = state.products) {
+  return [...new Set([
+    ...BASE_CATEGORIES,
+    ...products.map((product) => product.category).filter(Boolean)
+  ])].sort((a, b) => a.localeCompare(b, "es"));
+}
+
 function renderMetrics() {
   const products = state.products;
   const totalUnits = products.reduce((sum, product) => sum + Number(product.stock), 0);
@@ -711,7 +719,7 @@ function renderMetrics() {
 
 function renderCategoryFilter() {
   const current = els.categoryFilter.value;
-  const categories = [...new Set(state.products.map((product) => product.category))].sort();
+  const categories = getCategoryOptions();
   els.categoryFilter.innerHTML = `<option value="all">Todas las categorias</option>`;
   categories.forEach((category) => {
     const option = document.createElement("option");
@@ -1091,7 +1099,7 @@ function renderPurchaseOptions() {
 function renderPurchaseCategoryOptions() {
   if (!els.purchaseCategory) return;
   const current = els.purchaseCategory.value || "all";
-  const categories = [...new Set(state.products.map((product) => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  const categories = getCategoryOptions();
   els.purchaseCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
   categories.forEach((category) => {
     const option = document.createElement("option");
@@ -1105,7 +1113,7 @@ function renderPurchaseCategoryOptions() {
 function renderPurchaseReportCategoryOptions() {
   if (!els.purchaseReportCategory) return;
   const current = els.purchaseReportCategory.value || "all";
-  const categories = [...new Set(state.products.map((product) => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  const categories = getCategoryOptions();
   els.purchaseReportCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
   categories.forEach((category) => {
     const option = document.createElement("option");
@@ -1241,7 +1249,7 @@ function closeBulkPurchaseModal() {
 function renderBulkPurchaseCategoryOptions() {
   if (!els.bulkPurchaseCategory) return;
   const current = els.bulkPurchaseCategory.value || "all";
-  const categories = [...new Set(state.products.map((product) => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  const categories = getCategoryOptions();
   els.bulkPurchaseCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
   categories.forEach((category) => {
     const option = document.createElement("option");
@@ -1483,11 +1491,7 @@ function closeBulkExitModal() {
 function renderBulkExitCategoryOptions() {
   if (!els.bulkExitCategory) return;
   const current = els.bulkExitCategory.value || "all";
-  const categories = [...new Set(state.products
-    .filter((product) => Number(product.stock) > 0)
-    .map((product) => product.category)
-    .filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b, "es"));
+  const categories = getCategoryOptions(state.products.filter((product) => Number(product.stock) > 0));
 
   els.bulkExitCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
   categories.forEach((category) => {
@@ -1742,7 +1746,7 @@ function renderExitOptions() {
 function renderExitCategoryOptions() {
   if (!els.exitCategory) return;
   const current = els.exitCategory.value || "all";
-  const categories = [...new Set(state.products.map((product) => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  const categories = getCategoryOptions();
   els.exitCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
   categories.forEach((category) => {
     const option = document.createElement("option");
