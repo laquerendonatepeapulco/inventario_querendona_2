@@ -437,6 +437,11 @@ select,
   color: var(--red);
 }
 
+.logout-button {
+  min-width: max-content;
+  white-space: nowrap;
+}
+
 .icon-button {
   display: grid;
   place-items: center;
@@ -1313,7 +1318,7 @@ label {
 
   .mobile-action-grid {
     display: grid;
-    grid-template-columns: 44px 44px 1fr;
+    grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr);
     gap: 8px;
   }
 
@@ -1615,9 +1620,10 @@ label {
 }
 
 .home-link {
+  display: inline-grid;
+  place-items: center;
   text-decoration: none;
   text-align: center;
-  justify-content: center;
 }
 
 @media (max-width: 680px) {
