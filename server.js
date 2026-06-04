@@ -42,8 +42,6 @@ const movementTypeLabels = {
 };
 
 const detailedExitTypes = new Set(["venta", "merma", "danado", "consumo_interno", "ajuste"]);
-const supplierTypes = new Set(["Proveedor local", "Proveedor Externo"]);
-const purchaseSupplierTypes = new Set(["Proveedor Local", "Proveedor Externo"]);
 const purchaseMeasureUnits = new Set([
   "Pieza",
   "Kilogramo",
@@ -257,6 +255,11 @@ function defaultExitNote(type) {
 
 function normalizePurchaseMeasureUnit(value) {
   return purchaseMeasureUnits.has(value) ? value : "Pieza";
+}
+
+function normalizeSupplierName(value, fallback = "Proveedor local") {
+  const supplier = String(value || "").trim().replace(/\s+/g, " ").slice(0, 120);
+  return supplier || fallback;
 }
 
 function displayMovementNote(note, movementType) {
@@ -2204,7 +2207,7 @@ async function recordMovement(client, product, quantity, note, userId, unitPrice
   const type = normalizeMovementType(movementType, quantity, note);
   const price = unitPrice === null || unitPrice === undefined ? null : Number(unitPrice);
   const cost = unitCost === null || unitCost === undefined ? null : Number(unitCost);
-  const provider = supplierTypes.has(supplierType) ? supplierType : "Proveedor local";
+  const provider = normalizeSupplierName(supplierType);
   const unit = normalizePurchaseMeasureUnit(measureUnit);
   await client.query(
     `INSERT INTO movements (product_id, product_name, sku, quantity, unit_price, unit_cost, movement_type, supplier_type, measure_unit, note, created_by)
@@ -2216,7 +2219,7 @@ async function recordMovement(client, product, quantity, note, userId, unitPrice
 function sanitizePurchase(input) {
   const purchase = {
     productId: String(input.productId || "").trim(),
-    supplier: purchaseSupplierTypes.has(input.supplier) ? input.supplier : "",
+    supplier: normalizeSupplierName(input.supplier, ""),
     quantity: Number(input.quantity),
     measureUnit: normalizePurchaseMeasureUnit(input.measureUnit),
     unitCost: Number(input.unitCost),
@@ -2296,7 +2299,9 @@ async function applyPurchase(client, purchase, userId) {
     userId,
     null,
     "compra",
-    purchase.unitCost
+    purchase.unitCost,
+    purchase.supplier,
+    purchase.measureUnit
   );
 
   return {
@@ -2312,7 +2317,7 @@ function sanitizeExitUse(input) {
     quantity: Number(input.quantity),
     measureUnit: normalizePurchaseMeasureUnit(input.measureUnit),
     movementType,
-    supplierType: supplierTypes.has(input.supplierType) ? input.supplierType : "Proveedor local",
+    supplierType: normalizeSupplierName(input.supplierType),
     note: String(input.note || defaultExitNote(movementType)).trim().slice(0, 180)
   };
 
@@ -2799,7 +2804,7 @@ app.post("/api/exits/bulk", authRequired, stockAccessRequired, async (req, res, 
   const client = await pool.connect();
   try {
     const movementType = normalizeMovementType(req.body.movementType, -1, "");
-    const supplierType = supplierTypes.has(req.body.supplierType) ? req.body.supplierType : "Proveedor local";
+    const supplierType = normalizeSupplierName(req.body.supplierType);
     const note = String(req.body.note || defaultExitNote(movementType)).trim().slice(0, 180);
     const items = Array.isArray(req.body.items) ? req.body.items : [];
     if (!items.length) {
@@ -3023,7 +3028,7 @@ app.post("/api/purchases", authRequired, stockAccessRequired, async (req, res, n
 app.post("/api/purchases/bulk", authRequired, stockAccessRequired, async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const supplier = purchaseSupplierTypes.has(req.body.supplier) ? req.body.supplier : "";
+    const supplier = normalizeSupplierName(req.body.supplier, "");
     const note = String(req.body.note || "").trim().slice(0, 180);
     const items = Array.isArray(req.body.items) ? req.body.items : [];
     if (!supplier) {

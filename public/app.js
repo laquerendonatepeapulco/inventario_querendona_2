@@ -19,6 +19,31 @@ let activePanel = "dashboard";
 let bulkPurchaseItems = [];
 let bulkExitItems = [];
 
+const DEFAULT_SUPPLIERS = ["Proveedor local", "Proveedor externo"];
+const CATEGORY_SUPPLIERS = {
+  "refresco": ["Coca cola", "Jarritos", "Pepsi", "Peñafiel"],
+  "refreso": ["Coca cola", "Jarritos", "Pepsi", "Peñafiel"],
+  "abarrotes": ["Tiendas 3B", "Aurrera", "Chedraui", "Sams Club", "Tienda Rojo Gomez", "Tienda Java", "Tienda Neto", "Tienda Dif", "Oxxo"],
+  "bolsas": ["Dulceria Licha", "Dulceria Oscarin", "Tienda Java", "Tienda Rojo Gomez", "Tienda Dif", "Tienda 3B"],
+  "vinos y licores": ["Sams Club", "La Misión", "Tienda Java", "El Mosto", "Tienda 3B", "Tienda Neto", "Oxxo", "Aurrera", "Chedraui", "Tequila 3030"],
+  "carne": ["Carniceria New York", "Carniceria El Colega", "Sams Club", "Proveedor local", "Proveedor externo"],
+  "cerveza": ["Modelo", "Heineken", "La Misión", "Tienda Java", "Modelorama", "Proveedor local", "Proveedor externo"],
+  "chiles secos y hiervas de olor": ["Central de abastos", "Tienda Java", "Mercado Local", "Proveedor local", "Otro"],
+  "chiles secos y hierbas de olor": ["Central de abastos", "Tienda Java", "Mercado Local", "Proveedor local", "Otro"],
+  "chiles secos": ["Central de abastos", "Tienda Java", "Mercado Local", "Proveedor local", "Otro"],
+  "hierbas de olor": ["Central de abastos", "Tienda Java", "Mercado Local", "Proveedor local", "Otro"],
+  "verdura": ["Central de abastos", "Recaudería Local", "Mercado local"],
+  "frutas": ["Central de abastos", "Mercado local", "Recaudería local"],
+  "lacteos": ["Merced", "Tienda Java", "Tiendas 3B", "Tienda Rojo gomez", "Aurrera", "Chedraui", "Mercado local", "Proveedor local", "Proveedor externo"],
+  "desechable": ["Dulceria Licha", "Dulceria Oscarin", "Tienda Java", "Tienda Rojo Gomez", "Tienda Dif", "Tienda 3B"],
+  "suministro de bano": ["Tienda 3B", "Tienda Java"],
+  "molino": ["Tienda Java", "Tortillería Hidalgo", "Chedraui", "Proveedor local"],
+  "panaderia": ["Canela Gourmet", "Chedraui", "Proveedor local"],
+  "agua": ["Jarritos", "Proveedor local", "Proveedor externo"],
+  "productos de limpieza": ["Proveedor local", "Tienda 3B", "Chedraui", "Tienda Java"]
+};
+const ALL_SUPPLIERS = uniqueSuppliers(Object.values(CATEGORY_SUPPLIERS).flat());
+
 const els = {
   panels: document.querySelectorAll(".panel"),
   navItems: document.querySelectorAll(".nav-item"),
@@ -305,6 +330,7 @@ function bindEvents() {
   });
   els.bulkExitCategory.addEventListener("change", () => {
     renderBulkExitProductOptions();
+    renderBulkExitSupplierOptions();
     fillBulkExitDefaults();
   });
   els.bulkExitProduct.addEventListener("change", fillBulkExitDefaults);
@@ -312,12 +338,14 @@ function bindEvents() {
   els.bulkExitItems.addEventListener("click", handleBulkExitItems);
   els.purchaseCategory.addEventListener("change", () => {
     renderPurchaseOptions();
+    renderPurchaseSupplierOptions();
     fillPurchaseDefaults();
   });
   els.purchaseForm.addEventListener("submit", savePurchaseFromForm);
   els.purchaseProduct.addEventListener("change", fillPurchaseDefaults);
   els.bulkPurchaseCategory.addEventListener("change", () => {
     renderBulkPurchaseProductOptions();
+    renderBulkPurchaseSupplierOptions();
     fillBulkPurchaseDefaults();
   });
   els.bulkPurchaseProduct.addEventListener("change", fillBulkPurchaseDefaults);
@@ -1056,6 +1084,7 @@ function renderPurchaseOptions() {
     els.purchaseProduct.value = "";
   }
 
+  renderPurchaseSupplierOptions();
   renderPurchaseReportProductFilter();
 }
 
@@ -1108,11 +1137,12 @@ function renderPurchaseReportProductFilter() {
 function fillPurchaseDefaults() {
   const product = state.products.find((item) => item.id === els.purchaseProduct.value);
   if (!product) {
+    renderPurchaseSupplierOptions();
     updatePurchaseTotal();
     return;
   }
 
-  els.purchaseSupplier.value = normalizePurchaseSupplier(product.supplier || els.purchaseSupplier.value);
+  renderPurchaseSupplierOptions(product.supplier || els.purchaseSupplier.value);
   els.purchaseUnitCost.value = Number(product.cost || 0).toFixed(2);
   if (!els.purchaseQuantity.value) els.purchaseQuantity.value = 1;
   updatePurchaseTotal();
@@ -1126,8 +1156,72 @@ function updatePurchaseTotal() {
   els.purchaseTotal.textContent = formatter.format(Math.max(total, 0));
 }
 
+function supplierKey(value) {
+  return normalizeSearch(value).replace(/\s+/g, " ");
+}
+
+function uniqueSuppliers(suppliers) {
+  const seen = new Set();
+  return suppliers.reduce((items, supplier) => {
+    const clean = String(supplier || "").trim().replace(/\s+/g, " ");
+    const key = supplierKey(clean);
+    if (!clean || seen.has(key)) return items;
+    seen.add(key);
+    items.push(clean);
+    return items;
+  }, []);
+}
+
+function suppliersForCategory(category) {
+  const key = supplierKey(category);
+  if (!key || key === "all") return ALL_SUPPLIERS;
+  return CATEGORY_SUPPLIERS[key] || DEFAULT_SUPPLIERS;
+}
+
+function selectedSupplierCategory(categoryValue, productId) {
+  if (categoryValue && categoryValue !== "all") return categoryValue;
+  const product = state.products.find((item) => item.id === productId);
+  return product?.category || "all";
+}
+
+function renderSupplierSelect(select, category, preferredValue) {
+  if (!select) return;
+  const suppliers = suppliersForCategory(category);
+  const current = preferredValue || select.value;
+  const currentKey = supplierKey(current);
+  select.innerHTML = "";
+  suppliers.forEach((supplier) => {
+    const option = document.createElement("option");
+    option.value = supplier;
+    option.textContent = supplier;
+    select.append(option);
+  });
+  const selected = suppliers.find((supplier) => supplierKey(supplier) === currentKey);
+  select.value = selected || suppliers[0] || "";
+}
+
+function renderPurchaseSupplierOptions(preferredValue) {
+  const category = selectedSupplierCategory(els.purchaseCategory.value, els.purchaseProduct.value);
+  renderSupplierSelect(els.purchaseSupplier, category, preferredValue);
+}
+
+function renderBulkPurchaseSupplierOptions(preferredValue) {
+  const category = selectedSupplierCategory(els.bulkPurchaseCategory.value, els.bulkPurchaseProduct.value);
+  renderSupplierSelect(els.bulkPurchaseSupplier, category, preferredValue);
+}
+
+function renderExitSupplierOptions(preferredValue) {
+  const category = selectedSupplierCategory(els.exitCategory.value, els.exitProduct.value);
+  renderSupplierSelect(els.exitSupplierType, category, preferredValue);
+}
+
+function renderBulkExitSupplierOptions(preferredValue) {
+  const category = selectedSupplierCategory(els.bulkExitCategory.value, els.bulkExitProduct.value);
+  renderSupplierSelect(els.bulkExitSupplierType, category, preferredValue);
+}
+
 function normalizePurchaseSupplier(value) {
-  return value === "Proveedor Externo" ? "Proveedor Externo" : "Proveedor Local";
+  return String(value || "").trim().replace(/\s+/g, " ");
 }
 
 function openBulkPurchaseModal() {
@@ -1174,11 +1268,16 @@ function renderBulkPurchaseProductOptions() {
     els.bulkPurchaseProduct.append(option);
   });
   els.bulkPurchaseProduct.value = products.some((product) => product.id === selected) ? selected : "";
+  renderBulkPurchaseSupplierOptions();
 }
 
 function fillBulkPurchaseDefaults() {
   const product = state.products.find((item) => item.id === els.bulkPurchaseProduct.value);
-  if (!product) return;
+  if (!product) {
+    renderBulkPurchaseSupplierOptions();
+    return;
+  }
+  renderBulkPurchaseSupplierOptions(product.supplier || els.bulkPurchaseSupplier.value);
   els.bulkPurchaseUnitCost.value = Number(product.cost || 0).toFixed(2);
   if (!els.bulkPurchaseQuantity.value) els.bulkPurchaseQuantity.value = 1;
 }
@@ -1356,7 +1455,7 @@ async function saveBulkPurchase() {
 
   bulkPurchaseItems = [];
   els.bulkPurchaseNote.value = "";
-  els.bulkPurchaseSupplier.value = "Proveedor Local";
+  renderBulkPurchaseSupplierOptions();
   closeBulkPurchaseModal();
   await loadRemoteData();
   await loadPurchaseReport();
@@ -1417,14 +1516,17 @@ function renderBulkExitProductOptions() {
     els.bulkExitProduct.append(option);
   });
   els.bulkExitProduct.value = products.some((product) => product.id === selected) ? selected : "";
+  renderBulkExitSupplierOptions();
 }
 
 function fillBulkExitDefaults() {
   const product = state.products.find((item) => item.id === els.bulkExitProduct.value);
   if (!product) {
+    renderBulkExitSupplierOptions();
     els.bulkExitQuantity.removeAttribute("max");
     return;
   }
+  renderBulkExitSupplierOptions(product.supplier || els.bulkExitSupplierType.value);
   if (!els.bulkExitQuantity.value) els.bulkExitQuantity.value = 1;
   els.bulkExitQuantity.max = String(product.stock);
 }
@@ -1633,6 +1735,7 @@ function renderExitOptions() {
     els.exitProduct.value = "";
     els.exitProductSearch.value = "";
   }
+  renderExitSupplierOptions();
   fillExitRegisterDefaults();
 }
 
@@ -1675,6 +1778,7 @@ function syncExitProductFromSearch() {
 
 function fillExitRegisterDefaults() {
   const product = state.products.find((item) => item.id === els.exitProduct.value);
+  renderExitSupplierOptions(product?.supplier || els.exitSupplierType.value);
   els.exitStockPreview.textContent = product ? formatUnits(product.stock) : "-";
   if (!els.exitRegisterQuantity.value) els.exitRegisterQuantity.value = product ? 1 : "";
   if (!els.exitRegisterNote.value) els.exitRegisterNote.value = exitTypeNotes[els.exitRegisterMovementType.value] || "Uso en cocina";
