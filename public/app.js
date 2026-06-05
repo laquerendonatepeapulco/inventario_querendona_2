@@ -20,7 +20,16 @@ let bulkPurchaseItems = [];
 let bulkExitItems = [];
 
 const DEFAULT_SUPPLIERS = ["Proveedor local", "Proveedor externo"];
-const BASE_CATEGORIES = ["Agua", "Desechables", "Productos de Limpieza"];
+const BASE_CATEGORIES = ["Agua", "Carne", "Cerveza", "Desechables", "Leche", "Productos de Limpieza", "Refresco"];
+const CATEGORY_SUBCATEGORIES = {
+  "agua": ["Embotellada", "Garrafón", "Pipa"],
+  "carne": ["Res", "Cerdo", "Pollo", "Premium"],
+  "refresco": ["Con Azúcar", "Sin Azúcar", "Agua Mineral", "Jugo"],
+  "refreso": ["Con Azúcar", "Sin Azúcar", "Agua Mineral", "Jugo"],
+  "cerveza": ["Lata", "Vidrio"],
+  "leche": ["Natural", "Deslactosada"],
+  "lacteos": ["Natural", "Deslactosada"]
+};
 const CATEGORY_SUPPLIERS = {
   "refresco": ["Coca cola", "Jarritos", "Pepsi", "Peñafiel"],
   "refreso": ["Coca cola", "Jarritos", "Pepsi", "Peñafiel"],
@@ -45,6 +54,7 @@ const CATEGORY_SUPPLIERS = {
   "productos de limpieza": ["Proveedor local", "Tienda 3B", "Chedraui", "Tienda Java"]
 };
 const ALL_SUPPLIERS = uniqueSuppliers(Object.values(CATEGORY_SUPPLIERS).flat());
+const ALL_SUBCATEGORIES = uniqueLabels(Object.values(CATEGORY_SUBCATEGORIES).flat());
 
 const els = {
   panels: document.querySelectorAll(".panel"),
@@ -80,6 +90,7 @@ const els = {
   exitReportRows: document.querySelector("#exitReportRows"),
   exitRegisterForm: document.querySelector("#exitRegisterForm"),
   exitCategory: document.querySelector("#exitCategory"),
+  exitSubcategory: document.querySelector("#exitSubcategory"),
   exitProduct: document.querySelector("#exitProduct"),
   exitProductSearch: document.querySelector("#exitProductSearch"),
   exitProductOptions: document.querySelector("#exitProductOptions"),
@@ -98,6 +109,7 @@ const els = {
   comparisonRows: document.querySelector("#comparisonRows"),
   purchaseForm: document.querySelector("#purchaseForm"),
   purchaseCategory: document.querySelector("#purchaseCategory"),
+  purchaseSubcategory: document.querySelector("#purchaseSubcategory"),
   purchaseProduct: document.querySelector("#purchaseProduct"),
   purchaseMeasureUnit: document.querySelector("#purchaseMeasureUnit"),
   purchaseSupplier: document.querySelector("#purchaseSupplier"),
@@ -117,6 +129,7 @@ const els = {
   bulkPurchaseModal: document.querySelector("#bulkPurchaseModal"),
   bulkPurchaseSupplier: document.querySelector("#bulkPurchaseSupplier"),
   bulkPurchaseCategory: document.querySelector("#bulkPurchaseCategory"),
+  bulkPurchaseSubcategory: document.querySelector("#bulkPurchaseSubcategory"),
   bulkPurchaseProduct: document.querySelector("#bulkPurchaseProduct"),
   bulkPurchaseMeasureUnit: document.querySelector("#bulkPurchaseMeasureUnit"),
   bulkPurchaseQuantity: document.querySelector("#bulkPurchaseQuantity"),
@@ -129,6 +142,7 @@ const els = {
   bulkExitMovementType: document.querySelector("#bulkExitMovementType"),
   bulkExitSupplierType: document.querySelector("#bulkExitSupplierType"),
   bulkExitCategory: document.querySelector("#bulkExitCategory"),
+  bulkExitSubcategory: document.querySelector("#bulkExitSubcategory"),
   bulkExitProduct: document.querySelector("#bulkExitProduct"),
   bulkExitMeasureUnit: document.querySelector("#bulkExitMeasureUnit"),
   bulkExitQuantity: document.querySelector("#bulkExitQuantity"),
@@ -325,14 +339,27 @@ function bindEvents() {
     renderExitOptions();
     fillExitRegisterDefaults();
   });
+  els.exitSubcategory.addEventListener("change", () => {
+    renderExitOptions();
+    fillExitRegisterDefaults();
+  });
   els.exitProductSearch.addEventListener("input", syncExitProductFromSearch);
   els.exitProductSearch.addEventListener("change", syncExitProductFromSearch);
   els.bulkExitMovementType.addEventListener("change", () => {
     els.bulkExitNote.value = exitTypeNotes[els.bulkExitMovementType.value] || "Uso en cocina";
   });
   els.bulkExitCategory.addEventListener("change", () => {
+    renderLinkedSubcategorySelect(
+      els.bulkExitSubcategory,
+      els.bulkExitCategory.value,
+      state.products.filter((product) => Number(product.stock) > 0)
+    );
     renderBulkExitProductOptions();
     renderBulkExitSupplierOptions();
+    fillBulkExitDefaults();
+  });
+  els.bulkExitSubcategory.addEventListener("change", () => {
+    renderBulkExitProductOptions();
     fillBulkExitDefaults();
   });
   els.bulkExitProduct.addEventListener("change", fillBulkExitDefaults);
@@ -343,11 +370,20 @@ function bindEvents() {
     renderPurchaseSupplierOptions();
     fillPurchaseDefaults();
   });
+  els.purchaseSubcategory.addEventListener("change", () => {
+    renderPurchaseOptions();
+    fillPurchaseDefaults();
+  });
   els.purchaseForm.addEventListener("submit", savePurchaseFromForm);
   els.purchaseProduct.addEventListener("change", fillPurchaseDefaults);
   els.bulkPurchaseCategory.addEventListener("change", () => {
+    renderLinkedSubcategorySelect(els.bulkPurchaseSubcategory, els.bulkPurchaseCategory.value);
     renderBulkPurchaseProductOptions();
     renderBulkPurchaseSupplierOptions();
+    fillBulkPurchaseDefaults();
+  });
+  els.bulkPurchaseSubcategory.addEventListener("change", () => {
+    renderBulkPurchaseProductOptions();
     fillBulkPurchaseDefaults();
   });
   els.bulkPurchaseProduct.addEventListener("change", fillBulkPurchaseDefaults);
@@ -671,8 +707,6 @@ function filteredProducts() {
   const search = normalizeSearch(els.productSearch.value);
 
   return state.products.filter((product) => {
-    const categoryMatch = category === "all" || product.category === category;
-    const subcategoryMatch = subcategory === "all" || product.subcategory === subcategory;
     const statusMatch = stock === "all" || getStockStatus(product).key === stock;
     const searchMatch = !search || normalizeSearch([
       product.name,
@@ -681,7 +715,7 @@ function filteredProducts() {
       product.category,
       product.subcategory
     ].join(" ")).includes(search);
-    return categoryMatch && subcategoryMatch && statusMatch && searchMatch;
+    return matchesCategoryAndSubcategory(product, category, subcategory) && statusMatch && searchMatch;
   }).sort(compareProductsAlphabetically);
 }
 
@@ -697,11 +731,58 @@ function compareProductsAlphabetically(a, b) {
   });
 }
 
+function uniqueLabels(labels) {
+  const seen = new Set();
+  return labels.reduce((items, label) => {
+    const clean = String(label || "").trim().replace(/\s+/g, " ");
+    const key = supplierKey(clean);
+    if (!clean || seen.has(key)) return items;
+    seen.add(key);
+    items.push(clean);
+    return items;
+  }, []);
+}
+
 function getCategoryOptions(products = state.products) {
   return [...new Set([
     ...BASE_CATEGORIES,
     ...products.map((product) => product.category).filter(Boolean)
   ])].sort((a, b) => a.localeCompare(b, "es"));
+}
+
+function subcategoriesForCategory(category) {
+  const key = supplierKey(category);
+  if (!key || key === "all") return ALL_SUBCATEGORIES;
+  return CATEGORY_SUBCATEGORIES[key] || [];
+}
+
+function getSubcategoryOptions(category, products = state.products) {
+  const configured = subcategoriesForCategory(category);
+  const existing = products
+    .filter((product) => category === "all" || product.category === category)
+    .map((product) => product.subcategory)
+    .filter(Boolean);
+  return uniqueLabels([...configured, ...existing]).sort((a, b) => a.localeCompare(b, "es"));
+}
+
+function renderLinkedSubcategorySelect(select, category, products = state.products) {
+  if (!select) return;
+  const current = select.value || "all";
+  const subcategories = getSubcategoryOptions(category, products);
+  select.innerHTML = `<option value="all">Todas las subcategorias</option>`;
+  subcategories.forEach((subcategory) => {
+    const option = document.createElement("option");
+    option.value = subcategory;
+    option.textContent = subcategory;
+    select.append(option);
+  });
+  select.value = subcategories.includes(current) ? current : "all";
+}
+
+function matchesCategoryAndSubcategory(product, category, subcategory) {
+  const categoryMatch = category === "all" || product.category === category;
+  const subcategoryMatch = subcategory === "all" || product.subcategory === subcategory;
+  return categoryMatch && subcategoryMatch;
 }
 
 function renderMetrics() {
@@ -734,14 +815,7 @@ function renderCategoryFilter() {
 function renderSubcategoryFilter() {
   const current = els.subcategoryFilter.value;
   const selectedCategory = els.categoryFilter.value;
-  const subcategories = [
-    ...new Set(
-      state.products
-        .filter((product) => selectedCategory === "all" || product.category === selectedCategory)
-        .map((product) => product.subcategory)
-        .filter(Boolean)
-    )
-  ].sort();
+  const subcategories = getSubcategoryOptions(selectedCategory);
   els.subcategoryFilter.innerHTML = `<option value="all">Todas las subcategorias</option>`;
   subcategories.forEach((subcategory) => {
     const option = document.createElement("option");
@@ -1075,8 +1149,10 @@ function renderPurchaseOptions() {
   renderPurchaseReportCategoryOptions();
 
   const selectedCategory = els.purchaseCategory.value;
+  renderLinkedSubcategorySelect(els.purchaseSubcategory, selectedCategory);
+  const selectedSubcategory = els.purchaseSubcategory.value;
   const products = [...state.products]
-    .filter((product) => selectedCategory === "all" || product.category === selectedCategory)
+    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   els.purchaseProduct.innerHTML = `<option value="">Selecciona producto</option>`;
@@ -1236,6 +1312,7 @@ function normalizePurchaseSupplier(value) {
 function openBulkPurchaseModal() {
   if (!requireStockAccess()) return;
   renderBulkPurchaseCategoryOptions();
+  renderLinkedSubcategorySelect(els.bulkPurchaseSubcategory, els.bulkPurchaseCategory.value);
   renderBulkPurchaseProductOptions();
   renderBulkPurchaseItems();
   els.bulkPurchaseModal.classList.add("active");
@@ -1265,8 +1342,9 @@ function renderBulkPurchaseProductOptions() {
   if (!els.bulkPurchaseProduct) return;
   const selected = els.bulkPurchaseProduct.value;
   const selectedCategory = els.bulkPurchaseCategory.value;
+  const selectedSubcategory = els.bulkPurchaseSubcategory.value || "all";
   const products = [...state.products]
-    .filter((product) => selectedCategory === "all" || product.category === selectedCategory)
+    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   els.bulkPurchaseProduct.innerHTML = `<option value="">Selecciona producto</option>`;
@@ -1478,6 +1556,11 @@ async function saveBulkPurchase() {
 function openBulkExitModal() {
   if (!requireStockAccess()) return;
   renderBulkExitCategoryOptions();
+  renderLinkedSubcategorySelect(
+    els.bulkExitSubcategory,
+    els.bulkExitCategory.value,
+    state.products.filter((product) => Number(product.stock) > 0)
+  );
   renderBulkExitProductOptions();
   renderBulkExitItems();
   els.bulkExitModal.classList.add("active");
@@ -1508,9 +1591,10 @@ function renderBulkExitProductOptions() {
   if (!els.bulkExitProduct) return;
   const selected = els.bulkExitProduct.value;
   const selectedCategory = els.bulkExitCategory.value;
+  const selectedSubcategory = els.bulkExitSubcategory.value || "all";
   const products = [...state.products]
     .filter((product) => Number(product.stock) > 0)
-    .filter((product) => selectedCategory === "all" || product.category === selectedCategory)
+    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   els.bulkExitProduct.innerHTML = `<option value="">Selecciona producto</option>`;
@@ -1720,9 +1804,15 @@ function renderExitOptions() {
   renderExitCategoryOptions();
 
   const selectedCategory = els.exitCategory.value;
+  renderLinkedSubcategorySelect(
+    els.exitSubcategory,
+    selectedCategory,
+    state.products.filter((product) => Number(product.stock) > 0)
+  );
+  const selectedSubcategory = els.exitSubcategory.value || "all";
   const products = [...state.products]
     .filter((product) => Number(product.stock) > 0)
-    .filter((product) => selectedCategory === "all" || product.category === selectedCategory)
+    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   els.exitProductOptions.innerHTML = "";
@@ -1766,9 +1856,10 @@ function exitProductOptionLabel(product) {
 function syncExitProductFromSearch() {
   const query = els.exitProductSearch.value.trim().toLowerCase();
   const selectedCategory = els.exitCategory.value;
+  const selectedSubcategory = els.exitSubcategory.value || "all";
   const exactProduct = state.products.find((product) => (
     Number(product.stock) > 0
-      && (selectedCategory === "all" || product.category === selectedCategory)
+      && matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory)
       && exitProductOptionLabel(product).toLowerCase() === query
   ));
 
@@ -1797,6 +1888,7 @@ function fillExitRegisterDefaults() {
 function resetExitRegisterForm() {
   els.exitRegisterForm.reset();
   els.exitCategory.value = "all";
+  els.exitSubcategory.value = "all";
   renderExitOptions();
   fillExitRegisterDefaults();
 }
@@ -1804,6 +1896,7 @@ function resetExitRegisterForm() {
 function resetPurchaseForm() {
   els.purchaseForm.reset();
   els.purchaseCategory.value = "all";
+  els.purchaseSubcategory.value = "all";
   renderPurchaseOptions();
   updatePurchaseTotal();
 }

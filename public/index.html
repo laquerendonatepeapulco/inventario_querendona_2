@@ -264,6 +264,12 @@
                 </select>
               </label>
               <label>
+                Subcategoria
+                <select id="purchaseSubcategory" aria-label="Filtrar productos por subcategoria">
+                  <option value="all">Todas las subcategorias</option>
+                </select>
+              </label>
+              <label>
                 Producto
                 <select id="purchaseProduct" name="productId" required>
                   <option value="">Selecciona producto</option>
@@ -499,6 +505,12 @@
                 Categoria
                 <select id="exitCategory" aria-label="Filtrar productos por categoria">
                   <option value="all">Todas las categorias</option>
+                </select>
+              </label>
+              <label>
+                Subcategoria
+                <select id="exitSubcategory" aria-label="Filtrar productos por subcategoria">
+                  <option value="all">Todas las subcategorias</option>
                 </select>
               </label>
               <label>
@@ -849,6 +861,12 @@
             </select>
           </label>
           <label>
+            Subcategoria
+            <select id="bulkPurchaseSubcategory" aria-label="Filtrar productos por subcategoria">
+              <option value="all">Todas las subcategorias</option>
+            </select>
+          </label>
+          <label>
             Producto
             <select id="bulkPurchaseProduct">
               <option value="">Selecciona producto</option>
@@ -947,6 +965,12 @@
             </select>
           </label>
           <label>
+            Subcategoria
+            <select id="bulkExitSubcategory" aria-label="Filtrar productos por subcategoria">
+              <option value="all">Todas las subcategorias</option>
+            </select>
+          </label>
+          <label>
             Producto
             <select id="bulkExitProduct">
               <option value="">Selecciona producto</option>
@@ -1040,13 +1064,21 @@
             Subcategoria
             <input id="subcategory" name="subcategory" list="subcategoryOptions" maxlength="40" />
             <datalist id="subcategoryOptions">
-              <option value="Refrescos"></option>
-              <option value="Alcohol"></option>
-              <option value="Agua"></option>
-              <option value="Carne"></option>
-              <option value="Lacteos"></option>
-              <option value="Verdura"></option>
-              <option value="Desechables"></option>
+              <option value="Embotellada"></option>
+              <option value="Garrafón"></option>
+              <option value="Pipa"></option>
+              <option value="Res"></option>
+              <option value="Cerdo"></option>
+              <option value="Pollo"></option>
+              <option value="Premium"></option>
+              <option value="Con Azúcar"></option>
+              <option value="Sin Azúcar"></option>
+              <option value="Agua Mineral"></option>
+              <option value="Jugo"></option>
+              <option value="Lata"></option>
+              <option value="Vidrio"></option>
+              <option value="Natural"></option>
+              <option value="Deslactosada"></option>
             </datalist>
           </label>
           <label>
@@ -1157,6 +1189,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="auth.js?v=20260519-2"></script>
-    <script src="app.js?v=20260605-1"></script>
+    <script src="app.js?v=20260605-2"></script>
   </body>
 </html>
