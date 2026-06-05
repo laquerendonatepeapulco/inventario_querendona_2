@@ -23,7 +23,7 @@ const DEFAULT_SUPPLIERS = ["Proveedor local", "Proveedor externo"];
 const BASE_CATEGORIES = ["Agua", "Carne", "Cerveza", "Desechables", "Productos de Limpieza", "Refresco"];
 const CATEGORY_SUBCATEGORIES = {
   "agua": ["Embotellada", "Garrafón", "Pipa"],
-  "carne": ["Res", "Cerdo", "Pollo", "Premium"],
+  "carne": ["Res", "Cerdo", "Pollo", "Premium", "Pescados y Mariscos"],
   "refresco": ["Con Azúcar", "Sin Azúcar", "Agua Mineral", "Jugo"],
   "refreso": ["Con Azúcar", "Sin Azúcar", "Agua Mineral", "Jugo"],
   "cerveza": ["Lata", "Vidrio"],
