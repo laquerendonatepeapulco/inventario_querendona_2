@@ -20,7 +20,7 @@ let bulkPurchaseItems = [];
 let bulkExitItems = [];
 
 const DEFAULT_SUPPLIERS = ["Proveedor local", "Proveedor externo"];
-const BASE_CATEGORIES = ["Agua", "Productos de Limpieza"];
+const BASE_CATEGORIES = ["Agua", "Desechables", "Productos de Limpieza"];
 const CATEGORY_SUPPLIERS = {
   "refresco": ["Coca cola", "Jarritos", "Pepsi", "Peñafiel"],
   "refreso": ["Coca cola", "Jarritos", "Pepsi", "Peñafiel"],
@@ -37,6 +37,7 @@ const CATEGORY_SUPPLIERS = {
   "frutas": ["Central de abastos", "Mercado local", "Recaudería local"],
   "lacteos": ["Merced", "Tienda Java", "Tiendas 3B", "Tienda Rojo gomez", "Aurrera", "Chedraui", "Mercado local", "Proveedor local", "Proveedor externo"],
   "desechable": ["Dulceria Licha", "Dulceria Oscarin", "Tienda Java", "Tienda Rojo Gomez", "Tienda Dif", "Tienda 3B"],
+  "desechables": ["Dulceria Licha", "Dulceria Oscarin", "Tienda Java", "Tienda Rojo Gomez", "Tienda Dif", "Tienda 3B"],
   "suministro de bano": ["Tienda 3B", "Tienda Java"],
   "molino": ["Tienda Java", "Tortillería Hidalgo", "Chedraui", "Proveedor local"],
   "panaderia": ["Canela Gourmet", "Chedraui", "Proveedor local"],
