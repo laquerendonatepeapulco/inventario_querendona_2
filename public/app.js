@@ -20,14 +20,13 @@ let bulkPurchaseItems = [];
 let bulkExitItems = [];
 
 const DEFAULT_SUPPLIERS = ["Proveedor local", "Proveedor externo"];
-const BASE_CATEGORIES = ["Agua", "Carne", "Cerveza", "Desechables", "Leche", "Productos de Limpieza", "Refresco"];
+const BASE_CATEGORIES = ["Agua", "Carne", "Cerveza", "Desechables", "Productos de Limpieza", "Refresco"];
 const CATEGORY_SUBCATEGORIES = {
   "agua": ["Embotellada", "Garrafón", "Pipa"],
   "carne": ["Res", "Cerdo", "Pollo", "Premium"],
   "refresco": ["Con Azúcar", "Sin Azúcar", "Agua Mineral", "Jugo"],
   "refreso": ["Con Azúcar", "Sin Azúcar", "Agua Mineral", "Jugo"],
   "cerveza": ["Lata", "Vidrio"],
-  "leche": ["Natural", "Deslactosada"],
   "lacteos": ["Natural", "Deslactosada"]
 };
 const CATEGORY_SUPPLIERS = {
