@@ -194,6 +194,7 @@ function productQuickSummary(product) {
 function purchaseDto(row) {
   return {
     id: row.id,
+    movementId: row.movement_id || null,
     productId: row.product_id,
     productName: row.product_name,
     sku: row.sku,
@@ -2051,6 +2052,7 @@ async function ensureSchema() {
   await query(`
     CREATE TABLE IF NOT EXISTS purchase_entries (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      movement_id UUID REFERENCES movements(id) ON DELETE SET NULL,
       product_id UUID REFERENCES products(id) ON DELETE SET NULL,
       product_name TEXT NOT NULL,
       sku TEXT NOT NULL,
@@ -2066,6 +2068,7 @@ async function ensureSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  await query(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS movement_id UUID REFERENCES movements(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS subcategory TEXT NOT NULL DEFAULT ''`);
   await query(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS measure_unit TEXT NOT NULL DEFAULT 'Pieza'`);
   await query(`
@@ -2209,11 +2212,13 @@ async function recordMovement(client, product, quantity, note, userId, unitPrice
   const cost = unitCost === null || unitCost === undefined ? null : Number(unitCost);
   const provider = normalizeSupplierName(supplierType);
   const unit = normalizePurchaseMeasureUnit(measureUnit);
-  await client.query(
+  const result = await client.query(
     `INSERT INTO movements (product_id, product_name, sku, quantity, unit_price, unit_cost, movement_type, supplier_type, measure_unit, note, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+     RETURNING *`,
     [product.id, product.name, product.sku, quantity, price, cost, type, provider, unit, note, userId]
   );
+  return result.rows[0];
 }
 
 function sanitizePurchase(input) {
@@ -2291,7 +2296,7 @@ async function applyPurchase(client, purchase, userId) {
      RETURNING *`,
     [purchase.quantity, purchase.supplier, purchase.unitCost, product.id]
   );
-  await recordMovement(
+  const movement = await recordMovement(
     client,
     updated.rows[0],
     purchase.quantity,
@@ -2303,9 +2308,13 @@ async function applyPurchase(client, purchase, userId) {
     purchase.supplier,
     purchase.measureUnit
   );
+  const savedPurchase = await client.query(
+    `UPDATE purchase_entries SET movement_id = $1 WHERE id = $2 RETURNING *`,
+    [movement.id, inserted.rows[0].id]
+  );
 
   return {
-    purchase: inserted.rows[0],
+    purchase: savedPurchase.rows[0],
     product: updated.rows[0]
   };
 }
@@ -2800,6 +2809,70 @@ app.post("/api/products/:id/exit", authRequired, stockAccessRequired, async (req
   }
 });
 
+app.patch("/api/exits/:id", authRequired, adminRequired, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const movementResult = await client.query(
+      `SELECT * FROM movements WHERE id = $1 AND quantity < 0 FOR UPDATE`,
+      [req.params.id]
+    );
+    const movement = movementResult.rows[0];
+    if (!movement) {
+      const error = new Error("Salida no encontrada");
+      error.status = 404;
+      throw error;
+    }
+
+    const exitUse = sanitizeExitUse({ ...req.body, productId: movement.product_id });
+    const productResult = await client.query(`SELECT * FROM products WHERE id = $1 FOR UPDATE`, [movement.product_id]);
+    const product = productResult.rows[0];
+    if (!product) {
+      const error = new Error("El producto relacionado ya no existe");
+      error.status = 409;
+      throw error;
+    }
+
+    const previousQuantity = Math.abs(Number(movement.quantity));
+    const nextStock = Number(product.stock) + previousQuantity - exitUse.quantity;
+    if (nextStock < 0) {
+      const error = new Error(`No hay suficiente stock para aumentar la salida de ${product.name}`);
+      error.status = 400;
+      throw error;
+    }
+
+    const updatedProduct = await client.query(
+      `UPDATE products SET stock = $1, updated_at = now() WHERE id = $2 RETURNING *`,
+      [nextStock, product.id]
+    );
+    const updatedMovement = await client.query(
+      `UPDATE movements
+       SET quantity = $1, movement_type = $2, supplier_type = $3, measure_unit = $4, note = $5
+       WHERE id = $6
+       RETURNING *`,
+      [
+        -exitUse.quantity,
+        exitUse.movementType,
+        exitUse.supplierType,
+        exitUse.measureUnit,
+        exitUse.note || defaultExitNote(exitUse.movementType),
+        movement.id
+      ]
+    );
+
+    await client.query("COMMIT");
+    res.json({
+      movement: movementDto(updatedMovement.rows[0]),
+      product: productDto(updatedProduct.rows[0])
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
 app.post("/api/exits/bulk", authRequired, stockAccessRequired, async (req, res, next) => {
   const client = await pool.connect();
   try {
@@ -3003,6 +3076,140 @@ app.get("/api/purchases", authRequired, stockAccessRequired, async (req, res, ne
     res.json(report);
   } catch (error) {
     next(error);
+  }
+});
+
+app.patch("/api/purchases/:id", authRequired, adminRequired, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const purchaseResult = await client.query(
+      `SELECT * FROM purchase_entries WHERE id = $1 FOR UPDATE`,
+      [req.params.id]
+    );
+    const previous = purchaseResult.rows[0];
+    if (!previous) {
+      const error = new Error("Entrada no encontrada");
+      error.status = 404;
+      throw error;
+    }
+
+    const purchase = sanitizePurchase({ ...req.body, productId: previous.product_id });
+    const productResult = await client.query(`SELECT * FROM products WHERE id = $1 FOR UPDATE`, [previous.product_id]);
+    const product = productResult.rows[0];
+    if (!product) {
+      const error = new Error("El producto relacionado ya no existe");
+      error.status = 409;
+      throw error;
+    }
+
+    const nextStock = Number(product.stock) - Number(previous.quantity) + purchase.quantity;
+    if (nextStock < 0) {
+      const error = new Error(`No se puede reducir la entrada porque ${product.name} ya tiene unidades utilizadas`);
+      error.status = 400;
+      throw error;
+    }
+
+    const newerPurchase = await client.query(
+      `SELECT 1
+       FROM purchase_entries
+       WHERE product_id = $1 AND id <> $2 AND created_at > $3
+       LIMIT 1`,
+      [previous.product_id, previous.id, previous.created_at]
+    );
+    const updateCurrentCost = newerPurchase.rowCount === 0;
+    const updatedProduct = await client.query(
+      `UPDATE products
+       SET stock = $1,
+           supplier = CASE WHEN $2 THEN $3 ELSE supplier END,
+           cost = CASE WHEN $2 THEN $4 ELSE cost END,
+           updated_at = now()
+       WHERE id = $5
+       RETURNING *`,
+      [nextStock, updateCurrentCost, purchase.supplier, purchase.unitCost, product.id]
+    );
+
+    let movement = null;
+    if (previous.movement_id) {
+      const movementResult = await client.query(`SELECT * FROM movements WHERE id = $1 FOR UPDATE`, [previous.movement_id]);
+      movement = movementResult.rows[0] || null;
+    }
+    if (!movement) {
+      const movementResult = await client.query(
+        `SELECT *
+         FROM movements
+         WHERE product_id = $1
+           AND movement_type = 'compra'
+           AND created_at BETWEEN $2::timestamptz - INTERVAL '5 minutes' AND $2::timestamptz + INTERVAL '5 minutes'
+         ORDER BY ABS(EXTRACT(EPOCH FROM (created_at - $2::timestamptz))) ASC
+         LIMIT 1
+         FOR UPDATE`,
+        [previous.product_id, previous.created_at]
+      );
+      movement = movementResult.rows[0] || null;
+    }
+
+    if (movement) {
+      const movementResult = await client.query(
+        `UPDATE movements
+         SET quantity = $1, unit_cost = $2, supplier_type = $3, measure_unit = $4, note = $5
+         WHERE id = $6
+         RETURNING *`,
+        [
+          purchase.quantity,
+          purchase.unitCost,
+          purchase.supplier,
+          purchase.measureUnit,
+          `Compra a ${purchase.supplier}`,
+          movement.id
+        ]
+      );
+      movement = movementResult.rows[0];
+    } else {
+      movement = await recordMovement(
+        client,
+        updatedProduct.rows[0],
+        purchase.quantity,
+        `Compra a ${purchase.supplier}`,
+        previous.created_by,
+        null,
+        "compra",
+        purchase.unitCost,
+        purchase.supplier,
+        purchase.measureUnit
+      );
+      await client.query(`UPDATE movements SET created_at = $1 WHERE id = $2`, [previous.created_at, movement.id]);
+    }
+
+    const totalCost = Number((purchase.quantity * purchase.unitCost).toFixed(2));
+    const updatedPurchase = await client.query(
+      `UPDATE purchase_entries
+       SET movement_id = $1, supplier = $2, quantity = $3, measure_unit = $4,
+           unit_cost = $5, total_cost = $6, note = $7
+       WHERE id = $8
+       RETURNING *`,
+      [
+        movement.id,
+        purchase.supplier,
+        purchase.quantity,
+        purchase.measureUnit,
+        purchase.unitCost,
+        totalCost,
+        purchase.note,
+        previous.id
+      ]
+    );
+
+    await client.query("COMMIT");
+    res.json({
+      purchase: purchaseDto({ ...updatedPurchase.rows[0], created_by_name: req.user.name }),
+      product: productDto(updatedProduct.rows[0])
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
   }
 });
 

@@ -123,6 +123,15 @@ const els = {
   purchaseEntries: document.querySelector("#purchaseEntries"),
   purchaseSuppliers: document.querySelector("#purchaseSuppliers"),
   purchaseRows: document.querySelector("#purchaseRows"),
+  editPurchaseModal: document.querySelector("#editPurchaseModal"),
+  editPurchaseForm: document.querySelector("#editPurchaseForm"),
+  editPurchaseId: document.querySelector("#editPurchaseId"),
+  editPurchaseSubtitle: document.querySelector("#editPurchaseSubtitle"),
+  editPurchaseSupplier: document.querySelector("#editPurchaseSupplier"),
+  editPurchaseQuantity: document.querySelector("#editPurchaseQuantity"),
+  editPurchaseMeasureUnit: document.querySelector("#editPurchaseMeasureUnit"),
+  editPurchaseUnitCost: document.querySelector("#editPurchaseUnitCost"),
+  editPurchaseNote: document.querySelector("#editPurchaseNote"),
   bulkPurchaseModal: document.querySelector("#bulkPurchaseModal"),
   bulkPurchaseSupplier: document.querySelector("#bulkPurchaseSupplier"),
   bulkPurchaseCategory: document.querySelector("#bulkPurchaseCategory"),
@@ -147,6 +156,15 @@ const els = {
   bulkExitCount: document.querySelector("#bulkExitCount"),
   bulkExitTotal: document.querySelector("#bulkExitTotal"),
   bulkExitNote: document.querySelector("#bulkExitNote"),
+  editExitModal: document.querySelector("#editExitModal"),
+  editExitForm: document.querySelector("#editExitForm"),
+  editExitId: document.querySelector("#editExitId"),
+  editExitSubtitle: document.querySelector("#editExitSubtitle"),
+  editExitMovementType: document.querySelector("#editExitMovementType"),
+  editExitSupplierType: document.querySelector("#editExitSupplierType"),
+  editExitQuantity: document.querySelector("#editExitQuantity"),
+  editExitMeasureUnit: document.querySelector("#editExitMeasureUnit"),
+  editExitNote: document.querySelector("#editExitNote"),
   profitStart: document.querySelector("#profitStart"),
   profitEnd: document.querySelector("#profitEnd"),
   profitIncome: document.querySelector("#profitIncome"),
@@ -293,6 +311,8 @@ function bindEvents() {
   document.querySelector("#openBulkExitModal").addEventListener("click", openBulkExitModal);
   document.querySelector("#closeBulkExitModal").addEventListener("click", closeBulkExitModal);
   document.querySelector("#cancelBulkExit").addEventListener("click", closeBulkExitModal);
+  document.querySelector("#closeEditExitModal").addEventListener("click", closeEditExitModal);
+  document.querySelector("#cancelEditExit").addEventListener("click", closeEditExitModal);
   document.querySelector("#addBulkExitItem").addEventListener("click", addBulkExitItem);
   document.querySelector("#saveBulkExit").addEventListener("click", saveBulkExit);
   document.querySelector("#clearExitRegisterForm").addEventListener("click", resetExitRegisterForm);
@@ -303,6 +323,8 @@ function bindEvents() {
   document.querySelector("#openBulkPurchaseModal").addEventListener("click", openBulkPurchaseModal);
   document.querySelector("#closeBulkPurchaseModal").addEventListener("click", closeBulkPurchaseModal);
   document.querySelector("#cancelBulkPurchase").addEventListener("click", closeBulkPurchaseModal);
+  document.querySelector("#closeEditPurchaseModal").addEventListener("click", closeEditPurchaseModal);
+  document.querySelector("#cancelEditPurchase").addEventListener("click", closeEditPurchaseModal);
   document.querySelector("#addBulkPurchaseItem").addEventListener("click", addBulkPurchaseItem);
   document.querySelector("#saveBulkPurchase").addEventListener("click", saveBulkPurchase);
   document.querySelector("#clearPurchaseForm").addEventListener("click", resetPurchaseForm);
@@ -323,11 +345,15 @@ function bindEvents() {
   els.form.addEventListener("submit", saveProductFromForm);
   els.exitForm.addEventListener("submit", saveDetailedExit);
   els.exitRegisterForm.addEventListener("submit", saveExitFromSection);
+  els.editExitForm.addEventListener("submit", saveEditedExit);
   els.exitMovementType.addEventListener("change", () => {
     els.exitNote.value = exitTypeNotes[els.exitMovementType.value] || "Uso en cocina";
   });
   els.exitRegisterMovementType.addEventListener("change", () => {
     els.exitRegisterNote.value = exitTypeNotes[els.exitRegisterMovementType.value] || "Uso en cocina";
+  });
+  els.editExitMovementType.addEventListener("change", () => {
+    els.editExitNote.value = exitTypeNotes[els.editExitMovementType.value] || "Uso en cocina";
   });
   els.exitCategory.addEventListener("change", () => {
     renderExitOptions();
@@ -369,6 +395,7 @@ function bindEvents() {
     fillPurchaseDefaults();
   });
   els.purchaseForm.addEventListener("submit", savePurchaseFromForm);
+  els.editPurchaseForm.addEventListener("submit", saveEditedPurchase);
   els.purchaseProduct.addEventListener("change", fillPurchaseDefaults);
   els.bulkPurchaseCategory.addEventListener("change", () => {
     renderLinkedSubcategorySelect(els.bulkPurchaseSubcategory, els.bulkPurchaseCategory.value);
@@ -405,6 +432,12 @@ function bindEvents() {
   els.bulkExitModal.addEventListener("click", (event) => {
     if (event.target === els.bulkExitModal) closeBulkExitModal();
   });
+  els.editPurchaseModal.addEventListener("click", (event) => {
+    if (event.target === els.editPurchaseModal) closeEditPurchaseModal();
+  });
+  els.editExitModal.addEventListener("click", (event) => {
+    if (event.target === els.editExitModal) closeEditExitModal();
+  });
 }
 
 async function logout() {
@@ -414,6 +447,8 @@ async function logout() {
   closeExitModal();
   closeBulkPurchaseModal();
   closeBulkExitModal();
+  closeEditPurchaseModal();
+  closeEditExitModal();
   window.location.href = "login.html";
 }
 
@@ -1894,7 +1929,7 @@ function renderPurchaseReport() {
   if (!canManageStock()) {
     els.purchaseRows.innerHTML = `
       <tr>
-        <td colspan="9">
+        <td colspan="10">
           <div class="empty-state">Tu usuario no puede registrar ni consultar entradas.</div>
         </td>
       </tr>`;
@@ -1904,7 +1939,7 @@ function renderPurchaseReport() {
   if (!report) {
     els.purchaseRows.innerHTML = `
       <tr>
-        <td colspan="9">
+        <td colspan="10">
           <div class="empty-state">Genera un reporte para ver las compras del periodo.</div>
         </td>
       </tr>`;
@@ -1914,7 +1949,7 @@ function renderPurchaseReport() {
   if (!report.rows.length) {
     els.purchaseRows.innerHTML = `
       <tr>
-        <td colspan="9">
+        <td colspan="10">
           <div class="empty-state">No hay compras registradas en este rango de fechas.</div>
         </td>
       </tr>`;
@@ -1925,7 +1960,7 @@ function renderPurchaseReport() {
     const row = document.createElement("tr");
     row.className = "mobile-collapsible-row";
     row.innerHTML = `
-      <td class="mobile-row-summary" colspan="9">
+      <td class="mobile-row-summary" colspan="10">
         <button class="mobile-row-toggle" type="button" data-action="toggle-purchase-row" aria-expanded="false" aria-label="Ver detalle de ${escapeHtml(purchase.productName)}">
           <span>
             <strong>${escapeHtml(purchase.productName)}</strong>
@@ -1947,6 +1982,11 @@ function renderPurchaseReport() {
       <td data-label="Costo">${formatter.format(purchase.unitCost)}</td>
       <td data-label="Total">${formatter.format(purchase.totalCost)}</td>
       <td data-label="Usuario">${escapeHtml(purchase.createdByName)}</td>
+      <td data-label="Acciones">
+        ${isAdmin()
+          ? `<button class="ghost-button table-edit-button" type="button" data-action="edit-purchase" data-id="${purchase.id}">Editar</button>`
+          : `<span class="readonly-note">Solo lectura</span>`}
+      </td>
     `;
     els.purchaseRows.append(row);
   });
@@ -1958,6 +1998,77 @@ function renderPurchaseReport() {
       button.setAttribute("aria-expanded", String(expanded));
     });
   });
+  els.purchaseRows.querySelectorAll("[data-action='edit-purchase']").forEach((button) => {
+    button.addEventListener("click", () => openEditPurchaseModal(button.dataset.id));
+  });
+}
+
+function openEditPurchaseModal(purchaseId) {
+  if (!requireAdmin()) return;
+  const purchase = state.purchaseReport?.rows.find((item) => item.id === purchaseId);
+  if (!purchase) {
+    showToast("No se encontro la entrada seleccionada.");
+    return;
+  }
+
+  els.editPurchaseForm.reset();
+  els.editPurchaseId.value = purchase.id;
+  els.editPurchaseSubtitle.textContent = `${purchase.productName} · ${formatDate(purchase.createdAt)} · Registrado por ${purchase.createdByName}`;
+  els.editPurchaseSupplier.value = purchase.supplier || "";
+  els.editPurchaseQuantity.value = purchase.quantity;
+  els.editPurchaseMeasureUnit.value = purchase.measureUnit || "Pieza";
+  els.editPurchaseUnitCost.value = purchase.unitCost;
+  els.editPurchaseNote.value = purchase.note || "";
+  els.editPurchaseModal.classList.add("active");
+  els.editPurchaseModal.setAttribute("aria-hidden", "false");
+  els.editPurchaseQuantity.focus();
+}
+
+function closeEditPurchaseModal() {
+  els.editPurchaseModal.classList.remove("active");
+  els.editPurchaseModal.setAttribute("aria-hidden", "true");
+}
+
+async function saveEditedPurchase(event) {
+  event.preventDefault();
+  if (!requireAdmin()) return;
+
+  const purchase = {
+    supplier: els.editPurchaseSupplier.value.trim(),
+    quantity: Number(els.editPurchaseQuantity.value),
+    measureUnit: els.editPurchaseMeasureUnit.value,
+    unitCost: Number(els.editPurchaseUnitCost.value),
+    note: els.editPurchaseNote.value.trim()
+  };
+  if (!purchase.supplier || !Number.isInteger(purchase.quantity) || purchase.quantity <= 0) {
+    showToast("Captura un proveedor y una cantidad valida.");
+    return;
+  }
+  if (!Number.isFinite(purchase.unitCost) || purchase.unitCost < 0) {
+    showToast("Captura un costo unitario valido.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/purchases/${els.editPurchaseId.value}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(purchase)
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo editar la entrada.");
+    return;
+  }
+
+  closeEditPurchaseModal();
+  state.incomeReport = null;
+  state.exitReport = null;
+  state.comparisonReport = null;
+  state.profitReport = null;
+  await loadRemoteData();
+  await loadPurchaseReport();
+  render();
+  showToast("Entrada actualizada y stock corregido.");
 }
 
 async function savePurchaseFromForm(event) {
@@ -2309,7 +2420,7 @@ function renderExitReport() {
   if (!canManageStock()) {
     els.exitReportRows.innerHTML = `
       <tr>
-        <td colspan="11">
+        <td colspan="12">
           <div class="empty-state">Tu usuario no puede consultar usos de insumos.</div>
         </td>
       </tr>`;
@@ -2319,7 +2430,7 @@ function renderExitReport() {
   if (!report) {
     els.exitReportRows.innerHTML = `
       <tr>
-        <td colspan="11">
+        <td colspan="12">
           <div class="empty-state">Genera un reporte para ver los insumos utilizados del periodo.</div>
         </td>
       </tr>`;
@@ -2329,7 +2440,7 @@ function renderExitReport() {
   if (!report.rows.length) {
     els.exitReportRows.innerHTML = `
       <tr>
-        <td colspan="11">
+        <td colspan="12">
           <div class="empty-state">No hay usos de insumos registrados en este rango de fechas.</div>
         </td>
       </tr>`;
@@ -2341,7 +2452,7 @@ function renderExitReport() {
     row.className = "mobile-collapsible-row";
     const movementLabel = item.movementTypeLabel || movementTypeLabels[item.movementType] || "Uso en cocina";
     row.innerHTML = `
-      <td class="mobile-row-summary" colspan="11">
+      <td class="mobile-row-summary" colspan="12">
         <button class="mobile-row-toggle" type="button" data-action="toggle-exit-row" aria-expanded="false" aria-label="Ver detalle de ${escapeHtml(item.productName)}">
           <span>
             <strong>${escapeHtml(item.productName)}</strong>
@@ -2365,6 +2476,11 @@ function renderExitReport() {
       <td data-label="Precio">${formatter.format(item.unitPrice)}</td>
       <td data-label="Total">${formatter.format(item.total)}</td>
       <td data-label="Usuario">${escapeHtml(item.userName)}</td>
+      <td data-label="Acciones">
+        ${isAdmin()
+          ? `<button class="ghost-button table-edit-button" type="button" data-action="edit-exit" data-id="${item.id}">Editar</button>`
+          : `<span class="readonly-note">Solo lectura</span>`}
+      </td>
     `;
     els.exitReportRows.append(row);
   });
@@ -2376,6 +2492,73 @@ function renderExitReport() {
       button.setAttribute("aria-expanded", String(expanded));
     });
   });
+  els.exitReportRows.querySelectorAll("[data-action='edit-exit']").forEach((button) => {
+    button.addEventListener("click", () => openEditExitModal(button.dataset.id));
+  });
+}
+
+function openEditExitModal(exitId) {
+  if (!requireAdmin()) return;
+  const exit = state.exitReport?.rows.find((item) => item.id === exitId);
+  if (!exit) {
+    showToast("No se encontro la salida seleccionada.");
+    return;
+  }
+
+  els.editExitForm.reset();
+  els.editExitId.value = exit.id;
+  els.editExitSubtitle.textContent = `${exit.productName} · ${formatDate(exit.date)} · Registrado por ${exit.userName}`;
+  els.editExitMovementType.value = exit.movementType || "venta";
+  els.editExitSupplierType.value = exit.supplierType || "Proveedor local";
+  els.editExitQuantity.value = exit.unitsOut;
+  els.editExitMeasureUnit.value = exit.measureUnit || "Pieza";
+  els.editExitNote.value = exit.note || exitTypeNotes[exit.movementType] || "Uso en cocina";
+  els.editExitModal.classList.add("active");
+  els.editExitModal.setAttribute("aria-hidden", "false");
+  els.editExitQuantity.focus();
+}
+
+function closeEditExitModal() {
+  els.editExitModal.classList.remove("active");
+  els.editExitModal.setAttribute("aria-hidden", "true");
+}
+
+async function saveEditedExit(event) {
+  event.preventDefault();
+  if (!requireAdmin()) return;
+
+  const exit = {
+    movementType: els.editExitMovementType.value,
+    supplierType: els.editExitSupplierType.value.trim(),
+    quantity: Number(els.editExitQuantity.value),
+    measureUnit: els.editExitMeasureUnit.value,
+    note: els.editExitNote.value.trim()
+  };
+  if (!exit.supplierType || !Number.isInteger(exit.quantity) || exit.quantity <= 0) {
+    showToast("Captura un proveedor y una cantidad valida.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/exits/${els.editExitId.value}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(exit)
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo editar la salida.");
+    return;
+  }
+
+  closeEditExitModal();
+  state.incomeReport = null;
+  state.purchaseReport = null;
+  state.comparisonReport = null;
+  state.profitReport = null;
+  await loadRemoteData();
+  await loadExitReport();
+  render();
+  showToast("Salida actualizada y stock corregido.");
 }
 
 async function downloadExitReport() {

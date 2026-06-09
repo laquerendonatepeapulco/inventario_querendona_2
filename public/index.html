@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Inventario "La Querendona"</title>
     <link rel="icon" href="img/logo_pestaña.png" type="image/png">
-    <link rel="stylesheet" href="styles.css?v=20260609-1" />
+    <link rel="stylesheet" href="styles.css?v=20260609-2" />
   </head>
   <body>
     <div class="app-shell">
@@ -381,6 +381,7 @@
                   <th>Costo</th>
                   <th>Total</th>
                   <th>Usuario</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody id="purchaseRows"></tbody>
@@ -621,6 +622,7 @@
                   <th>Precio</th>
                   <th>Total</th>
                   <th>Usuario</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody id="exitReportRows"></tbody>
@@ -1019,6 +1021,144 @@
       </section>
     </div>
 
+    <div id="editPurchaseModal" class="modal-backdrop" aria-hidden="true">
+      <form id="editPurchaseForm" class="modal" aria-labelledby="editPurchaseTitle">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Correccion administrativa</p>
+            <h2 id="editPurchaseTitle">Editar entrada</h2>
+          </div>
+          <button id="closeEditPurchaseModal" class="icon-button" type="button" title="Cerrar">×</button>
+        </div>
+        <input id="editPurchaseId" type="hidden" />
+        <p id="editPurchaseSubtitle" class="modal-copy"></p>
+        <div class="form-grid">
+          <label>
+            Proveedor
+            <input id="editPurchaseSupplier" name="supplier" maxlength="120" required />
+          </label>
+          <label>
+            Cantidad recibida
+            <input id="editPurchaseQuantity" name="quantity" type="number" min="1" step="1" required />
+          </label>
+          <label>
+            Unidad de medida
+            <select id="editPurchaseMeasureUnit" name="measureUnit" required>
+              <option value="Pieza">Pieza</option>
+              <option value="Kilogramo">Kilogramo</option>
+              <option value="Gramo">Gramo</option>
+              <option value="Onza">Onza</option>
+              <option value="Litro">Litro</option>
+              <option value="Mililitro">Mililitro</option>
+              <option value="Caja">Caja</option>
+              <option value="Paquete">Paquete</option>
+              <option value="Bolsa">Bolsa</option>
+              <option value="Botella">Botella</option>
+              <option value="Lata">Lata</option>
+              <option value="Garrafon">Garrafon</option>
+              <option value="Cubeta">Cubeta</option>
+              <option value="Charola">Charola</option>
+              <option value="Costal">Costal</option>
+              <option value="Bulto">Bulto</option>
+              <option value="Manojo">Manojo</option>
+              <option value="Rollo">Rollo</option>
+              <option value="Docena">Docena</option>
+              <option value="Porcion">Porcion</option>
+              <option value="Rebanada">Rebanada</option>
+              <option value="Barra">Barra</option>
+              <option value="Sobre">Sobre</option>
+              <option value="Frasco">Frasco</option>
+              <option value="Galon">Galon</option>
+            </select>
+          </label>
+          <label>
+            Costo unitario
+            <input id="editPurchaseUnitCost" name="unitCost" type="number" min="0" step="0.01" required />
+          </label>
+        </div>
+        <label>
+          Nota
+          <textarea id="editPurchaseNote" name="note" maxlength="180" rows="3" placeholder="Factura, folio o detalle de compra"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button id="cancelEditPurchase" class="ghost-button" type="button">Cancelar</button>
+          <button class="primary-button" type="submit">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="editExitModal" class="modal-backdrop" aria-hidden="true">
+      <form id="editExitForm" class="modal" aria-labelledby="editExitTitle">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Correccion administrativa</p>
+            <h2 id="editExitTitle">Editar salida</h2>
+          </div>
+          <button id="closeEditExitModal" class="icon-button" type="button" title="Cerrar">×</button>
+        </div>
+        <input id="editExitId" type="hidden" />
+        <p id="editExitSubtitle" class="modal-copy"></p>
+        <div class="form-grid">
+          <label>
+            Tipo de uso
+            <select id="editExitMovementType" name="movementType" required>
+              <option value="venta">Uso en cocina</option>
+              <option value="merma">Merma</option>
+              <option value="danado">Producto dañado</option>
+              <option value="consumo_interno">Consumo interno</option>
+              <option value="ajuste">Ajuste de inventario</option>
+            </select>
+          </label>
+          <label>
+            Proveedor
+            <input id="editExitSupplierType" name="supplierType" maxlength="120" required />
+          </label>
+          <label>
+            Cantidad utilizada
+            <input id="editExitQuantity" name="quantity" type="number" min="1" step="1" required />
+          </label>
+          <label>
+            Unidad de medida
+            <select id="editExitMeasureUnit" name="measureUnit" required>
+              <option value="Pieza">Pieza</option>
+              <option value="Kilogramo">Kilogramo</option>
+              <option value="Gramo">Gramo</option>
+              <option value="Onza">Onza</option>
+              <option value="Litro">Litro</option>
+              <option value="Mililitro">Mililitro</option>
+              <option value="Caja">Caja</option>
+              <option value="Paquete">Paquete</option>
+              <option value="Bolsa">Bolsa</option>
+              <option value="Botella">Botella</option>
+              <option value="Lata">Lata</option>
+              <option value="Garrafon">Garrafon</option>
+              <option value="Cubeta">Cubeta</option>
+              <option value="Charola">Charola</option>
+              <option value="Costal">Costal</option>
+              <option value="Bulto">Bulto</option>
+              <option value="Manojo">Manojo</option>
+              <option value="Rollo">Rollo</option>
+              <option value="Docena">Docena</option>
+              <option value="Porcion">Porcion</option>
+              <option value="Rebanada">Rebanada</option>
+              <option value="Barra">Barra</option>
+              <option value="Sobre">Sobre</option>
+              <option value="Frasco">Frasco</option>
+              <option value="Galon">Galon</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Nota
+          <textarea id="editExitNote" name="note" maxlength="180" rows="3" placeholder="Platillo, area o detalle del insumo utilizado"></textarea>
+        </label>
+        <div class="modal-actions">
+          <button id="cancelEditExit" class="ghost-button" type="button">Cancelar</button>
+          <button class="primary-button" type="submit">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+
     <div id="productModal" class="modal-backdrop" aria-hidden="true">
       <form id="productForm" class="modal" aria-labelledby="modalTitle">
         <div class="modal-heading">
@@ -1180,6 +1320,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="auth.js?v=20260519-2"></script>
-    <script src="app.js?v=20260609-1"></script>
+    <script src="app.js?v=20260609-2"></script>
   </body>
 </html>

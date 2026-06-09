@@ -794,6 +794,12 @@ tbody tr:hover {
   white-space: nowrap;
 }
 
+.table-edit-button {
+  min-height: 34px;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+
 .settings-grid .workspace-section {
   min-height: 180px;
 }
