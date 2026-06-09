@@ -108,6 +108,8 @@ const els = {
   purchaseCategory: document.querySelector("#purchaseCategory"),
   purchaseSubcategory: document.querySelector("#purchaseSubcategory"),
   purchaseProduct: document.querySelector("#purchaseProduct"),
+  purchaseProductSearch: document.querySelector("#purchaseProductSearch"),
+  purchaseProductOptions: document.querySelector("#purchaseProductOptions"),
   purchaseMeasureUnit: document.querySelector("#purchaseMeasureUnit"),
   purchaseSupplier: document.querySelector("#purchaseSupplier"),
   purchaseQuantity: document.querySelector("#purchaseQuantity"),
@@ -396,7 +398,8 @@ function bindEvents() {
   });
   els.purchaseForm.addEventListener("submit", savePurchaseFromForm);
   els.editPurchaseForm.addEventListener("submit", saveEditedPurchase);
-  els.purchaseProduct.addEventListener("change", fillPurchaseDefaults);
+  els.purchaseProductSearch.addEventListener("input", syncPurchaseProductFromSearch);
+  els.purchaseProductSearch.addEventListener("change", syncPurchaseProductFromSearch);
   els.bulkPurchaseCategory.addEventListener("change", () => {
     renderLinkedSubcategorySelect(els.bulkPurchaseSubcategory, els.bulkPurchaseCategory.value);
     renderBulkPurchaseProductOptions();
@@ -577,6 +580,7 @@ function renderSession() {
 
   const stockControls = [
     "#purchaseProduct",
+    "#purchaseProductSearch",
     "#purchaseMeasureUnit",
     "#purchaseSupplier",
     "#purchaseQuantity",
@@ -1138,7 +1142,7 @@ function profitQueryString() {
 }
 
 function renderPurchaseOptions() {
-  if (!els.purchaseProduct) return;
+  if (!els.purchaseProduct || !els.purchaseProductOptions) return;
   const selected = els.purchaseProduct.value;
   renderPurchaseCategoryOptions();
   renderPurchaseReportCategoryOptions();
@@ -1150,22 +1154,41 @@ function renderPurchaseOptions() {
     .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
-  els.purchaseProduct.innerHTML = `<option value="">Selecciona producto</option>`;
+  els.purchaseProductOptions.innerHTML = "";
   products.forEach((product) => {
     const option = document.createElement("option");
-    option.value = product.id;
-    option.textContent = `${product.name} (${formatUnits(product.stock)})`;
-    els.purchaseProduct.append(option);
+    option.value = purchaseProductOptionLabel(product);
+    option.dataset.id = product.id;
+    els.purchaseProductOptions.append(option);
   });
 
   if (products.some((product) => product.id === selected)) {
-    els.purchaseProduct.value = selected;
+    const product = products.find((item) => item.id === selected);
+    els.purchaseProductSearch.value = purchaseProductOptionLabel(product);
   } else {
     els.purchaseProduct.value = "";
+    els.purchaseProductSearch.value = "";
   }
 
   renderPurchaseSupplierOptions();
   renderPurchaseReportProductFilter();
+}
+
+function purchaseProductOptionLabel(product) {
+  return `${product.name} · ${product.sku} · ${formatCategoryPath(product)} · ${formatUnits(product.stock)}`;
+}
+
+function syncPurchaseProductFromSearch() {
+  const query = els.purchaseProductSearch.value.trim().toLowerCase();
+  const selectedCategory = els.purchaseCategory.value;
+  const selectedSubcategory = els.purchaseSubcategory.value || "all";
+  const exactProduct = state.products.find((product) => (
+    matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory)
+      && purchaseProductOptionLabel(product).toLowerCase() === query
+  ));
+
+  els.purchaseProduct.value = exactProduct?.id || "";
+  fillPurchaseDefaults();
 }
 
 function renderPurchaseCategoryOptions() {
@@ -1218,6 +1241,7 @@ function fillPurchaseDefaults() {
   const product = state.products.find((item) => item.id === els.purchaseProduct.value);
   if (!product) {
     renderPurchaseSupplierOptions();
+    els.purchaseUnitCost.value = "";
     updatePurchaseTotal();
     return;
   }

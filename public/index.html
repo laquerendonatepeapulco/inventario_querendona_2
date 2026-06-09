@@ -260,9 +260,9 @@
               </label>
               <label>
                 Producto
-                <select id="purchaseProduct" name="productId" required>
-                  <option value="">Selecciona producto</option>
-                </select>
+                <input id="purchaseProductSearch" name="productSearch" type="search" list="purchaseProductOptions" placeholder="Escribe para buscar producto" autocomplete="off" required />
+                <input id="purchaseProduct" name="productId" type="hidden" />
+                <datalist id="purchaseProductOptions"></datalist>
               </label>
               <label>
                 Unidad de medida
@@ -1320,6 +1320,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="auth.js?v=20260519-2"></script>
-    <script src="app.js?v=20260609-2"></script>
+    <script src="app.js?v=20260609-3"></script>
   </body>
 </html>
