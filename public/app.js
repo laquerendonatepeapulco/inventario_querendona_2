@@ -10,7 +10,6 @@ let state = {
   profitReport: null,
   stockAlerts: [],
   smartAlerts: [],
-  restockSuggestions: [],
   users: [],
   theme: localStorage.getItem(THEME_KEY) || "light"
 };
@@ -66,8 +65,7 @@ const els = {
   productRows: document.querySelector("#productRows"),
   alertList: document.querySelector("#alertList"),
   smartAlertCount: document.querySelector("#smartAlertCount"),
-  restockSuggestionList: document.querySelector("#restockSuggestionList"),
-  restockSuggestionCount: document.querySelector("#restockSuggestionCount"),
+  dashboardPrimaryGrid: document.querySelector("#dashboardPrimaryGrid"),
   adminAlertSection: document.querySelector("#adminAlertSection"),
   adminAlertList: document.querySelector("#adminAlertList"),
   adminAlertCount: document.querySelector("#adminAlertCount"),
@@ -245,11 +243,10 @@ async function loadRemoteData() {
   if (isAdmin()) {
     requests.push(window.Auth.apiFetch("/api/stock-alerts"));
     requests.push(window.Auth.apiFetch("/api/smart-alerts"));
-    requests.push(window.Auth.apiFetch("/api/restock-suggestions"));
     requests.push(window.Auth.apiFetch("/api/users"));
   }
 
-  const [productsResponse, movementsResponse, alertsResponse, smartAlertsResponse, restockSuggestionsResponse, usersResponse] = await Promise.all(requests);
+  const [productsResponse, movementsResponse, alertsResponse, smartAlertsResponse, usersResponse] = await Promise.all(requests);
 
   const productsPayload = await productsResponse.json();
   const movementsPayload = await movementsResponse.json();
@@ -257,7 +254,6 @@ async function loadRemoteData() {
   state.movements = movementsPayload.movements || [];
   state.stockAlerts = alertsResponse ? (await safeJsonPayload(alertsResponse)).alerts || [] : [];
   state.smartAlerts = smartAlertsResponse ? (await safeJsonPayload(smartAlertsResponse)).alerts || [] : [];
-  state.restockSuggestions = restockSuggestionsResponse ? (await safeJsonPayload(restockSuggestionsResponse)).suggestions || [] : [];
   state.users = usersResponse ? (await safeJsonPayload(usersResponse)).users || [] : [];
 }
 
@@ -290,7 +286,6 @@ function bindEvents() {
   document.querySelector("#downloadBackup").addEventListener("click", downloadBackup);
   document.querySelector("#resetDemo").addEventListener("click", resetDemo);
   document.querySelector("#clearMovements").addEventListener("click", clearMovements);
-  document.querySelector("#restockAll").addEventListener("click", restockSuggested);
   document.querySelector("#loadIncomeReport").addEventListener("click", loadIncomeReport);
   document.querySelector("#downloadIncomeReport").addEventListener("click", downloadIncomeReport);
   document.querySelector("#loadExitReport").addEventListener("click", loadExitReport);
@@ -508,6 +503,9 @@ function renderSession() {
   if (els.adminAlertSection) {
     els.adminAlertSection.hidden = !isAdmin();
   }
+  if (els.dashboardPrimaryGrid) {
+    els.dashboardPrimaryGrid.classList.toggle("single-column", !isAdmin());
+  }
   if (els.adminPasswordResetCard) {
     els.adminPasswordResetCard.hidden = !isAdmin();
   }
@@ -520,7 +518,6 @@ function renderSession() {
   });
 
   const adminControls = [
-    "#restockAll",
     "#downloadBackup",
     "#resetDemo",
     "#clearMovements",
@@ -683,7 +680,6 @@ function render() {
   renderSubcategoryFilter();
   renderProducts();
   renderAlerts();
-  renderRestockSuggestions();
   renderAdminAlerts();
   renderMovementTypeFilter();
   renderMovements();
@@ -940,41 +936,6 @@ function renderAlerts() {
       <span class="badge ${getStockStatus(product).key}">${product.stock}/${product.minStock}</span>
     `;
     els.alertList.append(item);
-  });
-}
-
-function renderRestockSuggestions() {
-  if (!els.restockSuggestionList) return;
-
-  const suggestions = isAdmin() ? state.restockSuggestions : [];
-  els.restockSuggestionList.innerHTML = "";
-
-  if (els.restockSuggestionCount) {
-    const units = suggestions.reduce((sum, item) => sum + Number(item.suggestedQuantity || 0), 0);
-    els.restockSuggestionCount.textContent = `${suggestions.length} productos · +${units}`;
-  }
-
-  if (!isAdmin()) {
-    els.restockSuggestionList.innerHTML = `<div class="empty-state">Solo admin puede aplicar reposiciones sugeridas.</div>`;
-    return;
-  }
-
-  if (!suggestions.length) {
-    els.restockSuggestionList.innerHTML = `<div class="empty-state">No hay productos que necesiten reposicion automatica.</div>`;
-    return;
-  }
-
-  suggestions.slice(0, 8).forEach((suggestion) => {
-    const item = document.createElement("article");
-    item.className = "alert-item restock-item";
-    item.innerHTML = `
-      <div>
-        <strong>${escapeHtml(suggestion.productName)} <span class="badge low">${escapeHtml(suggestion.reason)}</span></strong>
-        <small>${escapeHtml(suggestion.sku)} · ${escapeHtml(formatCategoryPath(suggestion))} · stock ${suggestion.stock}/${suggestion.minStock} → ${suggestion.targetStock}</small>
-      </div>
-      <span class="badge ok">+${suggestion.suggestedQuantity}</span>
-    `;
-    els.restockSuggestionList.append(item);
   });
 }
 
@@ -2963,24 +2924,6 @@ async function adjustStock(id, amount) {
   state.comparisonReport = null;
   render();
   showToast(`${product.name}: stock ${amount > 0 ? "aumentado" : "reducido"}.`);
-}
-
-async function restockSuggested() {
-  if (!requireAdmin()) return;
-  const response = await window.Auth.apiFetch("/api/restock-suggested", { method: "POST" });
-  const payload = await response.json();
-  if (!response.ok) {
-    showToast(payload.error || "No se pudo aplicar la reposicion.");
-    return;
-  }
-
-  await loadRemoteData();
-  render();
-  showToast(
-    payload.updated
-      ? `Reposicion sugerida aplicada a ${payload.updated} productos (+${payload.units || 0} unidades).`
-      : "No hay productos por reponer."
-  );
 }
 
 async function clearMovements() {

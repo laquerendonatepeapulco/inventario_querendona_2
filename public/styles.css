@@ -551,13 +551,17 @@ select,
   grid-template-columns: 1.1fr 0.9fr;
 }
 
+.content-grid.single-column {
+  grid-template-columns: 1fr;
+}
+
 .dashboard-secondary-grid {
   grid-template-columns: 1fr;
   margin-top: 16px;
 }
 
 .admin-alert-section {
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .workspace-section {
@@ -582,10 +586,6 @@ select,
   border-radius: var(--radius);
   background: var(--panel);
   animation: slideIn 260ms ease both;
-}
-
-.restock-item {
-  background: color-mix(in srgb, var(--green) 5%, var(--panel));
 }
 
 .alert-item strong,

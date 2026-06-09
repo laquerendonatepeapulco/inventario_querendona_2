@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Inventario "La Querendona"</title>
     <link rel="icon" href="img/logo_pestaña.png" type="image/png">
-    <link rel="stylesheet" href="styles.css?v=20260604-1" />
+    <link rel="stylesheet" href="styles.css?v=20260609-1" />
   </head>
   <body>
     <div class="app-shell">
@@ -145,7 +145,7 @@
             </article>
           </div>
 
-          <div class="content-grid">
+          <div id="dashboardPrimaryGrid" class="content-grid">
             <section class="workspace-section">
               <div class="section-heading">
                 <div>
@@ -157,16 +157,15 @@
               <div id="alertList" class="alert-list"></div>
             </section>
 
-            <section class="workspace-section">
+            <section id="adminAlertSection" class="workspace-section admin-alert-section">
               <div class="section-heading">
                 <div>
-                  <p class="eyebrow">Compras</p>
-                  <h3>Reposicion sugerida</h3>
+                  <p class="eyebrow">Avisos de usuarios</p>
+                  <h3>Productos reportados como agotados</h3>
                 </div>
-                <span id="restockSuggestionCount" class="badge ok">0 productos</span>
-                <button id="restockAll" class="ghost-button" type="button">Reponer sugerido</button>
+                <span id="adminAlertCount" class="badge low">0 abiertos</span>
               </div>
-              <div id="restockSuggestionList" class="alert-list"></div>
+              <div id="adminAlertList" class="alert-list"></div>
             </section>
           </div>
 
@@ -182,16 +181,6 @@
             </section>
           </div>
 
-          <section id="adminAlertSection" class="workspace-section admin-alert-section">
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Avisos de usuarios</p>
-                <h3>Productos reportados como agotados</h3>
-              </div>
-              <span id="adminAlertCount" class="badge low">0 abiertos</span>
-            </div>
-            <div id="adminAlertList" class="alert-list"></div>
-          </section>
         </section>
 
         <section id="products" class="panel" aria-labelledby="productsTitle">
@@ -1191,6 +1180,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="auth.js?v=20260519-2"></script>
-    <script src="app.js?v=20260605-5"></script>
+    <script src="app.js?v=20260609-1"></script>
   </body>
 </html>
