@@ -1291,7 +1291,7 @@ async function loadExitReport(from, to) {
      WHERE movements.quantity < 0
        AND movements.created_at >= $1::date
        AND movements.created_at < ($2::date + INTERVAL '1 day')
-     ORDER BY movements.created_at ASC`,
+     ORDER BY movements.created_at DESC, movements.id DESC`,
     [from, to]
   );
   const rows = result.rows.map(exitReportDto);
