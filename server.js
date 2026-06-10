@@ -97,6 +97,60 @@ function hashToken(token) {
   return crypto.createHash("sha256").update(String(token || "")).digest("hex");
 }
 
+function databaseFingerprint() {
+  if (!databaseUrl) return null;
+
+  try {
+    const parsed = new URL(databaseUrl);
+    return crypto
+      .createHash("sha256")
+      .update(`${parsed.hostname}${parsed.pathname}`)
+      .digest("hex")
+      .slice(0, 12);
+  } catch {
+    return "invalid";
+  }
+}
+
+app.get("/api/health/notifications", async (req, res) => {
+  let databaseConnected = false;
+
+  if (databaseUrl) {
+    try {
+      await pool.query("SELECT 1");
+      databaseConnected = true;
+    } catch {
+      databaseConnected = false;
+    }
+  }
+
+  res.json({
+    deployment: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || "local",
+    database: {
+      configured: Boolean(databaseUrl),
+      connected: databaseConnected,
+      fingerprint: databaseFingerprint()
+    },
+    email: {
+      configured: Boolean(
+        splitRecipients(process.env.ALERT_EMAIL_TO).length
+        && (process.env.ALERT_EMAIL_FROM || process.env.SMTP_USER)
+        && process.env.SMTP_HOST
+        && process.env.SMTP_USER
+        && process.env.SMTP_PASS
+      )
+    },
+    whatsapp: {
+      configured: Boolean(
+        splitRecipients(process.env.ALERT_WHATSAPP_TO).length
+        && process.env.WHATSAPP_ACCESS_TOKEN
+        && process.env.WHATSAPP_PHONE_NUMBER_ID
+        && process.env.WHATSAPP_TEMPLATE_NAME
+      )
+    }
+  });
+});
+
 function sessionDurationDays() {
   const days = Number(process.env.SESSION_DAYS || 30);
   return Number.isFinite(days) && days > 0 ? days : 30;
