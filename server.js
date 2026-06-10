@@ -535,26 +535,24 @@ function inventoryLevel(product) {
   return null;
 }
 
-function automaticStockAlertTransition(previousProduct, currentProduct) {
-  const previousLevel = inventoryLevel(previousProduct);
-  const currentLevel = inventoryLevel(currentProduct);
-  if (!currentLevel || currentLevel === previousLevel) return null;
-  return currentLevel;
-}
-
 async function notifyAutomaticStockAlertAfterExit(previousProduct, currentProduct, user) {
-  const level = automaticStockAlertTransition(previousProduct, currentProduct);
-  if (!level) return { skipped: "no_inventory_transition" };
+  const previousLevel = inventoryLevel(previousProduct);
+  const level = inventoryLevel(currentProduct);
+  if (!level) return { skipped: "healthy_inventory" };
+
+  const existing = await query(
+    `SELECT * FROM stock_alerts WHERE product_id = $1 AND status = 'open' LIMIT 1`,
+    [currentProduct.id]
+  );
+  if (previousLevel === level && existing.rows[0]) {
+    return { skipped: "alert_already_open", level };
+  }
 
   const currentStock = Number(currentProduct.stock);
   const minimumStock = Number(currentProduct.minStock ?? currentProduct.min_stock ?? 0);
   const message = level === "out"
     ? "El producto quedo agotado despues de registrar una salida."
     : `El producto quedo con inventario bajo despues de registrar una salida: ${currentStock} disponibles; minimo ${minimumStock}.`;
-  const existing = await query(
-    `SELECT * FROM stock_alerts WHERE product_id = $1 AND status = 'open' LIMIT 1`,
-    [currentProduct.id]
-  );
   const alertResult = existing.rows[0]
     ? await query(
         `UPDATE stock_alerts
