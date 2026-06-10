@@ -356,31 +356,47 @@ function notificationAbortSignal() {
 }
 
 function buildStockAlertNotification(product, alert, user) {
-  const date = formatAlertDate(alert.created_at || new Date());
+  const date = formatAlertDate(alert.last_reported_at || alert.created_at || new Date());
   const reporterName = user.name || user.username || "Usuario";
   const reporter = `${reporterName} (${user.label || user.role || "sin rol"})`;
+  const inventoryLevel = alert.inventoryLevel || "out";
+  const currentStock = Number(product.stock);
+  const minimumStock = Number(product.minStock ?? product.min_stock ?? 0);
+  const isLowStock = inventoryLevel === "low";
+  const status = isLowStock
+    ? `Stock bajo: ${currentStock} disponibles; minimo ${minimumStock}`
+    : "Agotado: 0 disponibles";
+  const templateProduct = isLowStock
+    ? `${product.name} - Stock bajo (${currentStock} disponibles)`
+    : `${product.name} - Agotado`;
   const lines = [
-    "Aviso de producto agotado",
+    isLowStock ? "Aviso de inventario bajo" : "Aviso de producto agotado",
     "",
     `Fecha y hora: ${date}`,
     `Producto: ${product.name}`,
     `SKU: ${product.sku}`,
     `Categoria: ${product.category}`,
     `Subcategoria: ${product.subcategory || "Sin subcategoria"}`,
-    `Cantidad actual: ${Number(product.stock)}`,
+    `Estado: ${status}`,
+    `Cantidad actual: ${currentStock}`,
     `Reportado por: ${reporter}`,
     `Mensaje: ${alert.message}`
   ];
 
   return {
-    subject: `Aviso de agotado: ${product.name}`,
+    subject: isLowStock
+      ? `Inventario bajo: ${product.name}`
+      : `Producto agotado: ${product.name}`,
     text: lines.join("\n"),
     templateParameters: [
-      product.name,
+      templateProduct,
       product.category,
       date,
       reporterName
-    ]
+    ],
+    whatsappTemplateName: isLowStock
+      ? process.env.WHATSAPP_LOW_STOCK_TEMPLATE_NAME || process.env.WHATSAPP_TEMPLATE_NAME
+      : process.env.WHATSAPP_TEMPLATE_NAME
   };
 }
 
@@ -504,11 +520,100 @@ async function notifyStockAlert(product, alert, user) {
   }
 
   console.info(
-    `Aviso de agotado para "${product.name}": ${results
+    `Aviso de inventario para "${product.name}": ${results
       .map((result) => `${result.channel}=${result.status}`)
       .join(", ")}`
   );
   return results;
+}
+
+function inventoryLevel(product) {
+  const stock = Number(product.stock);
+  const minimumStock = Number(product.minStock ?? product.min_stock ?? 0);
+  if (stock <= 0) return "out";
+  if (stock <= minimumStock) return "low";
+  return null;
+}
+
+function automaticStockAlertTransition(previousProduct, currentProduct) {
+  const previousLevel = inventoryLevel(previousProduct);
+  const currentLevel = inventoryLevel(currentProduct);
+  if (!currentLevel || currentLevel === previousLevel) return null;
+  return currentLevel;
+}
+
+async function notifyAutomaticStockAlertAfterExit(previousProduct, currentProduct, user) {
+  const level = automaticStockAlertTransition(previousProduct, currentProduct);
+  if (!level) return { skipped: "no_inventory_transition" };
+
+  const currentStock = Number(currentProduct.stock);
+  const minimumStock = Number(currentProduct.minStock ?? currentProduct.min_stock ?? 0);
+  const message = level === "out"
+    ? "El producto quedo agotado despues de registrar una salida."
+    : `El producto quedo con inventario bajo despues de registrar una salida: ${currentStock} disponibles; minimo ${minimumStock}.`;
+  const existing = await query(
+    `SELECT * FROM stock_alerts WHERE product_id = $1 AND status = 'open' LIMIT 1`,
+    [currentProduct.id]
+  );
+  const alertResult = existing.rows[0]
+    ? await query(
+        `UPDATE stock_alerts
+         SET product_name = $1,
+             sku = $2,
+             message = $3,
+             created_by = $4,
+             last_reported_at = now(),
+             report_count = report_count + 1
+         WHERE id = $5
+         RETURNING *`,
+        [
+          currentProduct.name,
+          currentProduct.sku,
+          message,
+          user.id,
+          existing.rows[0].id
+        ]
+      )
+    : await query(
+        `INSERT INTO stock_alerts (product_id, product_name, sku, message, created_by)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [
+          currentProduct.id,
+          currentProduct.name,
+          currentProduct.sku,
+          message,
+          user.id
+        ]
+      );
+
+  const alert = { ...alertResult.rows[0], inventoryLevel: level };
+  const notificationResults = await notifyStockAlert(currentProduct, alert, user);
+  const savedAlert = await query(
+    `UPDATE stock_alerts
+     SET notification_results = $1::jsonb
+     WHERE id = $2
+     RETURNING *`,
+    [JSON.stringify(notificationResults), alert.id]
+  );
+
+  return {
+    level,
+    alert: stockAlertDto(savedAlert.rows[0]),
+    notifications: notificationResults
+  };
+}
+
+async function safelyNotifyAutomaticStockAlertAfterExit(previousProduct, currentProduct, user) {
+  try {
+    return await notifyAutomaticStockAlertAfterExit(previousProduct, currentProduct, user);
+  } catch (error) {
+    console.warn(`No se pudo procesar el aviso automatico de "${currentProduct.name}":`, error.message);
+    return {
+      skipped: "notification_failed",
+      error: publicNotificationError(error.message)
+    };
+  }
 }
 
 function notificationChannelName(send) {
@@ -2461,7 +2566,10 @@ async function applyExitUse(client, exitUse, userId) {
     exitUse.measureUnit
   );
 
-  return productDto(updated.rows[0]);
+  return {
+    previousProduct: productDto(product),
+    product: productDto(updated.rows[0])
+  };
 }
 
 async function authRequired(req, res, next) {
@@ -2864,8 +2972,13 @@ app.post("/api/products/:id/exit", authRequired, stockAccessRequired, async (req
   try {
     const exitUse = sanitizeExitUse({ ...req.body, productId: req.params.id });
     await client.query("BEGIN");
-    const product = await applyExitUse(client, exitUse, req.user.id);
+    const exitResult = await applyExitUse(client, exitUse, req.user.id);
     await client.query("COMMIT");
+    const inventoryAlert = await safelyNotifyAutomaticStockAlertAfterExit(
+      exitResult.previousProduct,
+      exitResult.product,
+      req.user
+    );
     let completionNotice = null;
     if (req.user.role === "staff") {
       try {
@@ -2878,7 +2991,11 @@ app.post("/api/products/:id/exit", authRequired, stockAccessRequired, async (req
         };
       }
     }
-    res.json({ product, completionNotice });
+    res.json({
+      product: exitResult.product,
+      inventoryAlert,
+      completionNotice
+    });
   } catch (error) {
     await client.query("ROLLBACK");
     next(error);
@@ -2967,12 +3084,29 @@ app.post("/api/exits/bulk", authRequired, stockAccessRequired, async (req, res, 
     await client.query("BEGIN");
 
     const updatedProducts = [];
+    const inventoryTransitions = new Map();
     for (const exitUse of exits) {
-      const product = await applyExitUse(client, exitUse, req.user.id);
-      updatedProducts.push(product);
+      const exitResult = await applyExitUse(client, exitUse, req.user.id);
+      updatedProducts.push(exitResult.product);
+      const existingTransition = inventoryTransitions.get(exitResult.product.id);
+      inventoryTransitions.set(exitResult.product.id, {
+        previousProduct: existingTransition?.previousProduct || exitResult.previousProduct,
+        product: exitResult.product
+      });
     }
 
     await client.query("COMMIT");
+    const inventoryAlerts = [];
+    for (const transition of inventoryTransitions.values()) {
+      const alert = await safelyNotifyAutomaticStockAlertAfterExit(
+        transition.previousProduct,
+        transition.product,
+        req.user
+      );
+      if (!alert.skipped || alert.skipped === "notification_failed") {
+        inventoryAlerts.push(alert);
+      }
+    }
     let completionNotice = null;
     if (req.user.role === "staff") {
       try {
@@ -2987,6 +3121,7 @@ app.post("/api/exits/bulk", authRequired, stockAccessRequired, async (req, res, 
     }
     res.status(201).json({
       products: updatedProducts,
+      inventoryAlerts,
       completionNotice,
       summary: {
         totalEntries: exits.length,
