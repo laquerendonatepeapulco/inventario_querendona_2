@@ -520,6 +520,10 @@ function notificationChannelName(send) {
 function publicNotificationError(message) {
   const text = String(message || "");
 
+  if (text.includes("131030") || text.includes("not in allowed list") || text.includes("lista de autorizados")) {
+    return "El numero destinatario no esta autorizado en WhatsApp Cloud API. Revisa ALERT_WHATSAPP_TO y la lista de destinatarios de prueba.";
+  }
+
   if (text.includes("OAuthException") || text.includes("Authentication Error") || text.includes('"code":190')) {
     return "Token de WhatsApp invalido o vencido. Actualiza WHATSAPP_ACCESS_TOKEN y reinicia el servidor.";
   }
