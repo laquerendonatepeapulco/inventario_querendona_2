@@ -93,6 +93,12 @@ function hashPassword(password, salt) {
   return crypto.createHash("sha256").update(`${salt}:${password}`).digest("hex");
 }
 
+function loginUsername(username) {
+  const normalized = String(username || "").trim().toLowerCase();
+  const employeeAlias = normalized.match(/^empleado([1-3])$/);
+  return employeeAlias ? `cocinero${employeeAlias[1]}` : normalized;
+}
+
 function hashToken(token) {
   return crypto.createHash("sha256").update(String(token || "")).digest("hex");
 }
@@ -2638,7 +2644,7 @@ app.get("/api/cron/shift-exit-alerts", async (req, res, next) => {
 app.post("/api/auth/login", async (req, res, next) => {
   try {
     const { username = "", password = "" } = req.body;
-    const result = await query(`SELECT * FROM users WHERE username = $1`, [String(username).trim().toLowerCase()]);
+    const result = await query(`SELECT * FROM users WHERE username = $1`, [loginUsername(username)]);
     const user = result.rows[0];
 
     if (!user || hashPassword(password, user.salt) !== user.password_hash) {
