@@ -171,7 +171,9 @@ function stockAlertDto(row) {
     message: row.message,
     status: row.status,
     createdByName: row.created_by_name,
-    createdAt: row.created_at,
+    createdAt: row.last_reported_at || row.created_at,
+    reportCount: Number(row.report_count || 1),
+    notifications: Array.isArray(row.notification_results) ? row.notification_results : [],
     resolvedAt: row.resolved_at
   };
 }
@@ -447,6 +449,11 @@ async function notifyStockAlert(product, alert, user) {
     }
   }
 
+  console.info(
+    `Aviso de agotado para "${product.name}": ${results
+      .map((result) => `${result.channel}=${result.status}`)
+      .join(", ")}`
+  );
   return results;
 }
 
@@ -2082,9 +2089,22 @@ async function ensureSchema() {
       created_by UUID REFERENCES users(id) ON DELETE SET NULL,
       resolved_by UUID REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      last_reported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      report_count INTEGER NOT NULL DEFAULT 1,
+      notification_results JSONB NOT NULL DEFAULT '[]'::jsonb,
       resolved_at TIMESTAMPTZ
     )
   `);
+  await query(`ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS last_reported_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
+  await query(`ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS report_count INTEGER NOT NULL DEFAULT 1`);
+  await query(`ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS notification_results JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  await query(
+    `UPDATE stock_alerts
+     SET last_reported_at = created_at
+     WHERE report_count = 1
+       AND notification_results = '[]'::jsonb
+       AND last_reported_at > created_at`
+  );
   await query(`
     CREATE TABLE IF NOT EXISTS shift_exit_alert_runs (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2934,23 +2954,42 @@ app.post("/api/products/:id/stock-alert", authRequired, async (req, res, next) =
 
     const message = String(req.body.message || "Producto agotado o sin existencia en inventario.").trim().slice(0, 240);
     const existing = await query(
-      `SELECT id FROM stock_alerts WHERE product_id = $1 AND status = 'open' LIMIT 1`,
+      `SELECT * FROM stock_alerts WHERE product_id = $1 AND status = 'open' LIMIT 1`,
       [product.id]
     );
 
-    if (existing.rows[0]) {
-      res.status(409).json({ error: "Ya existe un aviso abierto para este producto" });
-      return;
-    }
+    const repeated = Boolean(existing.rows[0]);
+    const alertResult = repeated
+      ? await query(
+          `UPDATE stock_alerts
+           SET message = $1,
+               created_by = $2,
+               last_reported_at = now(),
+               report_count = report_count + 1
+           WHERE id = $3
+           RETURNING *`,
+          [message, req.user.id, existing.rows[0].id]
+        )
+      : await query(
+          `INSERT INTO stock_alerts (product_id, product_name, sku, message, created_by)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING *`,
+          [product.id, product.name, product.sku, message, req.user.id]
+        );
 
-    const result = await query(
-      `INSERT INTO stock_alerts (product_id, product_name, sku, message, created_by)
-       VALUES ($1, $2, $3, $4, $5)
+    const notificationResults = await notifyStockAlert(product, alertResult.rows[0], req.user);
+    const savedAlert = await query(
+      `UPDATE stock_alerts
+       SET notification_results = $1::jsonb
+       WHERE id = $2
        RETURNING *`,
-      [product.id, product.name, product.sku, message, req.user.id]
+      [JSON.stringify(notificationResults), alertResult.rows[0].id]
     );
-    const notificationResults = await notifyStockAlert(product, result.rows[0], req.user);
-    res.status(201).json({ alert: stockAlertDto(result.rows[0]), notifications: notificationResults });
+    res.status(repeated ? 200 : 201).json({
+      alert: stockAlertDto(savedAlert.rows[0]),
+      notifications: notificationResults,
+      repeated
+    });
   } catch (error) {
     next(error);
   }
@@ -2962,7 +3001,7 @@ app.get("/api/stock-alerts", authRequired, adminRequired, async (req, res, next)
       `SELECT stock_alerts.*, users.name AS created_by_name
        FROM stock_alerts
        LEFT JOIN users ON users.id = stock_alerts.created_by
-       ORDER BY stock_alerts.created_at DESC`
+       ORDER BY stock_alerts.last_reported_at DESC, stock_alerts.created_at DESC`
     );
     res.json({ alerts: result.rows.map(stockAlertDto) });
   } catch (error) {

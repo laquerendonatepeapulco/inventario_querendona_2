@@ -83,8 +83,20 @@ CREATE TABLE IF NOT EXISTS stock_alerts (
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   resolved_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_reported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  report_count INTEGER NOT NULL DEFAULT 1,
+  notification_results JSONB NOT NULL DEFAULT '[]'::jsonb,
   resolved_at TIMESTAMPTZ
 );
+
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS last_reported_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS report_count INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE stock_alerts ADD COLUMN IF NOT EXISTS notification_results JSONB NOT NULL DEFAULT '[]'::jsonb;
+UPDATE stock_alerts
+SET last_reported_at = created_at
+WHERE report_count = 1
+  AND notification_results = '[]'::jsonb
+  AND last_reported_at > created_at;
 
 CREATE TABLE IF NOT EXISTS shift_exit_alert_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
