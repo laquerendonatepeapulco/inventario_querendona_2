@@ -2143,6 +2143,12 @@ async function ensureSchema() {
     )
   `);
   await query(`
+    CREATE TABLE IF NOT EXISTS app_migrations (
+      migration_key TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await query(`
     CREATE TABLE IF NOT EXISTS app_sessions (
       token_hash TEXT PRIMARY KEY,
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -2307,70 +2313,64 @@ async function ensureSchema() {
 async function seedUsers() {
   await query(
     `UPDATE users
-     SET username = 'cocinero', name = 'Cocinero', label = 'Cocinero'
-     WHERE username IN ('capturista', 'usuario')
-       AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'cocinero')`
-  );
-  await query(
-    `UPDATE users
-     SET username = 'cocinero6', name = 'Cocinero 6', label = 'Cocinero'
-     WHERE username = 'usuario'
-       AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'cocinero6')`
+     SET username = 'cocinero1', name = 'Cocinero 1', role = 'staff', label = 'Cocinero'
+     WHERE username = 'cocinero'
+       AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'cocinero1')`
   );
 
   const users = [
     { username: "admin", password: "admin123", name: "Administrador 1", role: "admin", label: "Administrador" },
     { username: "admin2", password: "admin123", name: "Administrador 2", role: "admin", label: "Administrador" },
-    { username: "admin3", password: "admin123", name: "Administrador 3", role: "admin", label: "Administrador" },
-    { username: "cocinero", password: "alta123", name: "Cocinero 1", role: "staff", label: "Cocinero" },
-    { username: "cocinero2", password: "alta123", name: "Cocinero 2", role: "staff", label: "Cocinero" },
-    { username: "cocinero3", password: "alta123", name: "Cocinero 3", role: "staff", label: "Cocinero" },
-    { username: "cocinero4", password: "alta123", name: "Cocinero 4", role: "staff", label: "Cocinero" },
-    { username: "cocinero5", password: "alta123", name: "Cocinero 5", role: "staff", label: "Cocinero" },
-    { username: "cocinero6", password: "alta123", name: "Cocinero 6", role: "staff", label: "Cocinero" }
+    { username: "cocinero1", password: "empleado1", name: "Cocinero 1", role: "staff", label: "Cocinero" },
+    { username: "cocinero2", password: "empleado2", name: "Cocinero 2", role: "staff", label: "Cocinero" },
+    { username: "cocinero3", password: "empleado3", name: "Cocinero 3", role: "staff", label: "Cocinero" }
   ];
+  const rosterMigrationKey = "five-user-roster-2026-06";
+  const migration = await query(
+    `SELECT migration_key FROM app_migrations WHERE migration_key = $1`,
+    [rosterMigrationKey]
+  );
+  const resetCredentials = !migration.rows[0];
 
   for (const user of users) {
     const salt = crypto.randomBytes(16).toString("hex");
-    await query(
-      `INSERT INTO users (username, password_hash, salt, name, role, label)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (username) DO NOTHING`,
-      [user.username, hashPassword(user.password, salt), salt, user.name, user.role, user.label]
-    );
+    if (resetCredentials) {
+      await query(
+        `INSERT INTO users (username, password_hash, salt, name, role, label)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (username) DO UPDATE
+         SET password_hash = EXCLUDED.password_hash,
+             salt = EXCLUDED.salt,
+             name = EXCLUDED.name,
+             role = EXCLUDED.role,
+             label = EXCLUDED.label`,
+        [user.username, hashPassword(user.password, salt), salt, user.name, user.role, user.label]
+      );
+    } else {
+      await query(
+        `INSERT INTO users (username, password_hash, salt, name, role, label)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (username) DO UPDATE
+         SET name = EXCLUDED.name,
+             role = EXCLUDED.role,
+             label = EXCLUDED.label`,
+        [user.username, hashPassword(user.password, salt), salt, user.name, user.role, user.label]
+      );
+    }
   }
 
   await query(
-    `UPDATE users
-     SET username = 'cocinero', name = 'Cocinero', label = 'Cocinero'
-     WHERE username = 'capturista'
-       AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'cocinero')`
+    `DELETE FROM users
+     WHERE username <> ALL($1::text[])`,
+    [users.map((user) => user.username)]
   );
-  await query(
-    `UPDATE users
-     SET name = 'Cocinero 1', label = 'Cocinero'
-     WHERE username = 'cocinero'`
-  );
-  await query(
-    `UPDATE users
-     SET name = CASE username
-       WHEN 'admin' THEN 'Administrador 1'
-       WHEN 'admin2' THEN 'Administrador 2'
-       WHEN 'admin3' THEN 'Administrador 3'
-       WHEN 'cocinero2' THEN 'Cocinero 2'
-       WHEN 'cocinero3' THEN 'Cocinero 3'
-       WHEN 'cocinero4' THEN 'Cocinero 4'
-       WHEN 'cocinero5' THEN 'Cocinero 5'
-       WHEN 'cocinero6' THEN 'Cocinero 6'
-       ELSE name
-     END,
-     label = CASE
-       WHEN username IN ('admin', 'admin2', 'admin3') THEN 'Administrador'
-       WHEN username LIKE 'cocinero%' THEN 'Cocinero'
-       ELSE label
-     END
-     WHERE username IN ('admin', 'admin2', 'admin3', 'cocinero2', 'cocinero3', 'cocinero4', 'cocinero5', 'cocinero6')`
-  );
+  if (resetCredentials) {
+    await query(
+      `INSERT INTO app_migrations (migration_key) VALUES ($1)
+       ON CONFLICT (migration_key) DO NOTHING`,
+      [rosterMigrationKey]
+    );
+  }
 }
 
 async function seedProducts() {
