@@ -67,7 +67,10 @@ const purchaseMeasureUnits = new Set([
   "Barra",
   "Sobre",
   "Frasco",
-  "Galon"
+  "Galon",
+  "1 kg",
+  "1/2 kg",
+  "1/4 kg"
 ]);
 const shiftExitAlertShifts = [
   {
@@ -317,7 +320,10 @@ function defaultExitNote(type) {
 }
 
 function normalizePurchaseMeasureUnit(value) {
-  return purchaseMeasureUnits.has(value) ? value : "Pieza";
+  const clean = String(value || "").trim().replace(/\s+/g, " ").slice(0, 40);
+  if (!clean) return "Pieza";
+  if (purchaseMeasureUnits.has(clean)) return clean;
+  return clean;
 }
 
 function normalizeSupplierName(value, fallback = "Proveedor local") {

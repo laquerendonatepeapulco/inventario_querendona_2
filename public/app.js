@@ -53,6 +53,35 @@ const CATEGORY_SUPPLIERS = {
 };
 const ALL_SUPPLIERS = uniqueSuppliers(Object.values(CATEGORY_SUPPLIERS).flat());
 const ALL_SUBCATEGORIES = uniqueLabels(Object.values(CATEGORY_SUBCATEGORIES).flat());
+const STANDARD_MEASURE_UNITS = [
+  "Pieza",
+  "Kilogramo",
+  "Gramo",
+  "Onza",
+  "Litro",
+  "Mililitro",
+  "Caja",
+  "Paquete",
+  "Bolsa",
+  "Botella",
+  "Lata",
+  "Garrafon",
+  "Cubeta",
+  "Charola",
+  "Costal",
+  "Bulto",
+  "Manojo",
+  "Rollo",
+  "Docena",
+  "Porcion",
+  "Rebanada",
+  "Barra",
+  "Sobre",
+  "Frasco",
+  "Galon"
+];
+const MEAT_MEASURE_UNITS = ["1 kg", "1/2 kg", "1/4 kg"];
+const MEAT_CUSTOM_MEASURE_VALUE = "__custom_meat_measure__";
 
 const els = {
   panels: document.querySelectorAll(".panel"),
@@ -420,6 +449,17 @@ function bindEvents() {
   els.purchaseReportProduct.addEventListener("change", loadPurchaseReport);
   els.purchaseQuantity.addEventListener("input", updatePurchaseTotal);
   els.purchaseUnitCost.addEventListener("input", updatePurchaseTotal);
+  [
+    els.purchaseMeasureUnit,
+    els.bulkPurchaseMeasureUnit,
+    els.exitMeasureUnit,
+    els.bulkExitMeasureUnit,
+    els.exitModalMeasureUnit,
+    els.editPurchaseMeasureUnit,
+    els.editExitMeasureUnit
+  ].forEach((select) => {
+    select?.addEventListener("change", () => syncCustomMeasureInput(select, true));
+  });
   els.modal.addEventListener("click", (event) => {
     if (event.target === els.modal) closeModal();
   });
@@ -1171,6 +1211,7 @@ function renderPurchaseOptions() {
   }
 
   renderPurchaseSupplierOptions();
+  updatePurchaseMeasureOptions();
   renderPurchaseReportProductFilter();
 }
 
@@ -1241,12 +1282,14 @@ function fillPurchaseDefaults() {
   const product = state.products.find((item) => item.id === els.purchaseProduct.value);
   if (!product) {
     renderPurchaseSupplierOptions();
+    updatePurchaseMeasureOptions();
     els.purchaseUnitCost.value = "";
     updatePurchaseTotal();
     return;
   }
 
   renderPurchaseSupplierOptions(product.supplier || els.purchaseSupplier.value);
+  updatePurchaseMeasureOptions();
   els.purchaseUnitCost.value = Number(product.cost || 0).toFixed(2);
   if (!els.purchaseQuantity.value) els.purchaseQuantity.value = 1;
   updatePurchaseTotal();
@@ -1304,6 +1347,136 @@ function renderSupplierSelect(select, category, preferredValue) {
   select.value = selected || suppliers[0] || "";
 }
 
+function isMeatLabel(value) {
+  return normalizeSearch(value) === "carne";
+}
+
+function isMeatProduct(product) {
+  return Boolean(product && (isMeatLabel(product.category) || isMeatLabel(product.subcategory)));
+}
+
+function isMeatContext(category, subcategory, product) {
+  return isMeatProduct(product) || isMeatLabel(category) || isMeatLabel(subcategory);
+}
+
+function ensureCustomMeasureInput(select) {
+  if (!select?.id) return null;
+
+  const inputId = `${select.id}Custom`;
+  let input = document.querySelector(`#${inputId}`);
+  if (input) return input;
+
+  input = document.createElement("input");
+  input.id = inputId;
+  input.type = "text";
+  input.className = "custom-measure-input";
+  input.placeholder = "Ej. 750 g, 2 kg";
+  input.maxLength = 40;
+  input.autocomplete = "off";
+  input.hidden = true;
+  select.insertAdjacentElement("afterend", input);
+  return input;
+}
+
+function syncCustomMeasureInput(select, shouldFocus = false) {
+  const input = ensureCustomMeasureInput(select);
+  if (!input) return;
+
+  const isCustom = select.value === MEAT_CUSTOM_MEASURE_VALUE;
+  input.hidden = !isCustom;
+  input.required = isCustom;
+  if (!isCustom) input.value = "";
+  if (isCustom && shouldFocus) input.focus();
+}
+
+function selectedMeasureUnitValue(select) {
+  if (!select) return "Pieza";
+  if (select.value !== MEAT_CUSTOM_MEASURE_VALUE) return select.value || "Pieza";
+  return String(ensureCustomMeasureInput(select)?.value || "").trim();
+}
+
+function renderMeasureUnitOptions(select, isMeat, preferredValue) {
+  if (!select) return;
+
+  const customInput = ensureCustomMeasureInput(select);
+  const current = preferredValue || selectedMeasureUnitValue(select);
+  const currentKey = normalizeSearch(current);
+  const options = isMeat
+    ? [
+        ...MEAT_MEASURE_UNITS.map((unit) => ({ value: unit, label: unit })),
+        { value: MEAT_CUSTOM_MEASURE_VALUE, label: "Otra cantidad" }
+      ]
+    : STANDARD_MEASURE_UNITS.map((unit) => ({ value: unit, label: unit }));
+
+  select.innerHTML = "";
+  options.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.value;
+    option.textContent = item.label;
+    select.append(option);
+  });
+
+  if (isMeat) {
+    const exact = MEAT_MEASURE_UNITS.find((unit) => normalizeSearch(unit) === currentKey);
+    if (exact) {
+      select.value = exact;
+      if (customInput) customInput.value = "";
+    } else if (current && current !== MEAT_CUSTOM_MEASURE_VALUE && current !== "Pieza") {
+      select.value = MEAT_CUSTOM_MEASURE_VALUE;
+      if (customInput) customInput.value = current;
+    } else {
+      select.value = "1 kg";
+      if (customInput) customInput.value = "";
+    }
+  } else {
+    const exact = STANDARD_MEASURE_UNITS.find((unit) => normalizeSearch(unit) === currentKey);
+    select.value = exact || "Pieza";
+    if (customInput) customInput.value = "";
+  }
+
+  syncCustomMeasureInput(select);
+}
+
+function updatePurchaseMeasureOptions(preferredValue) {
+  const product = state.products.find((item) => item.id === els.purchaseProduct.value);
+  renderMeasureUnitOptions(
+    els.purchaseMeasureUnit,
+    isMeatContext(els.purchaseCategory.value, els.purchaseSubcategory.value, product),
+    preferredValue
+  );
+}
+
+function updateBulkPurchaseMeasureOptions(preferredValue) {
+  const product = state.products.find((item) => item.id === els.bulkPurchaseProduct.value);
+  renderMeasureUnitOptions(
+    els.bulkPurchaseMeasureUnit,
+    isMeatContext(els.bulkPurchaseCategory.value, els.bulkPurchaseSubcategory.value, product),
+    preferredValue
+  );
+}
+
+function updateExitMeasureOptions(preferredValue) {
+  const product = state.products.find((item) => item.id === els.exitProduct.value);
+  renderMeasureUnitOptions(
+    els.exitMeasureUnit,
+    isMeatContext(els.exitCategory.value, els.exitSubcategory.value, product),
+    preferredValue
+  );
+}
+
+function updateBulkExitMeasureOptions(preferredValue) {
+  const product = state.products.find((item) => item.id === els.bulkExitProduct.value);
+  renderMeasureUnitOptions(
+    els.bulkExitMeasureUnit,
+    isMeatContext(els.bulkExitCategory.value, els.bulkExitSubcategory.value, product),
+    preferredValue
+  );
+}
+
+function updateExitModalMeasureOptions(product, preferredValue) {
+  renderMeasureUnitOptions(els.exitModalMeasureUnit, isMeatProduct(product), preferredValue);
+}
+
 function renderPurchaseSupplierOptions(preferredValue) {
   const category = selectedSupplierCategory(els.purchaseCategory.value, els.purchaseProduct.value);
   renderSupplierSelect(els.purchaseSupplier, category, preferredValue);
@@ -1334,6 +1507,7 @@ function openBulkPurchaseModal() {
   renderLinkedSubcategorySelect(els.bulkPurchaseSubcategory, els.bulkPurchaseCategory.value);
   renderBulkPurchaseProductOptions();
   renderBulkPurchaseItems();
+  updateBulkPurchaseMeasureOptions();
   els.bulkPurchaseModal.classList.add("active");
   els.bulkPurchaseModal.setAttribute("aria-hidden", "false");
 }
@@ -1375,15 +1549,18 @@ function renderBulkPurchaseProductOptions() {
   });
   els.bulkPurchaseProduct.value = products.some((product) => product.id === selected) ? selected : "";
   renderBulkPurchaseSupplierOptions();
+  updateBulkPurchaseMeasureOptions();
 }
 
 function fillBulkPurchaseDefaults() {
   const product = state.products.find((item) => item.id === els.bulkPurchaseProduct.value);
   if (!product) {
     renderBulkPurchaseSupplierOptions();
+    updateBulkPurchaseMeasureOptions();
     return;
   }
   renderBulkPurchaseSupplierOptions(product.supplier || els.bulkPurchaseSupplier.value);
+  updateBulkPurchaseMeasureOptions();
   els.bulkPurchaseUnitCost.value = Number(product.cost || 0).toFixed(2);
   if (!els.bulkPurchaseQuantity.value) els.bulkPurchaseQuantity.value = 1;
 }
@@ -1408,7 +1585,11 @@ function addBulkPurchaseItem() {
     return;
   }
 
-  const measureUnit = els.bulkPurchaseMeasureUnit.value || "Pieza";
+  const measureUnit = selectedMeasureUnitValue(els.bulkPurchaseMeasureUnit);
+  if (!measureUnit) {
+    showToast("Captura la unidad de medida.");
+    return;
+  }
   const existing = bulkPurchaseItems.find((item) => item.productId === product.id);
   if (existing) {
     if ((existing.measureUnit || "Pieza") !== measureUnit) {
@@ -1582,6 +1763,7 @@ function openBulkExitModal() {
   );
   renderBulkExitProductOptions();
   renderBulkExitItems();
+  updateBulkExitMeasureOptions();
   els.bulkExitModal.classList.add("active");
   els.bulkExitModal.setAttribute("aria-hidden", "false");
 }
@@ -1625,16 +1807,19 @@ function renderBulkExitProductOptions() {
   });
   els.bulkExitProduct.value = products.some((product) => product.id === selected) ? selected : "";
   renderBulkExitSupplierOptions();
+  updateBulkExitMeasureOptions();
 }
 
 function fillBulkExitDefaults() {
   const product = state.products.find((item) => item.id === els.bulkExitProduct.value);
   if (!product) {
     renderBulkExitSupplierOptions();
+    updateBulkExitMeasureOptions();
     els.bulkExitQuantity.removeAttribute("max");
     return;
   }
   renderBulkExitSupplierOptions(product.supplier || els.bulkExitSupplierType.value);
+  updateBulkExitMeasureOptions();
   if (!els.bulkExitQuantity.value) els.bulkExitQuantity.value = 1;
   els.bulkExitQuantity.max = String(product.stock);
 }
@@ -1659,7 +1844,11 @@ function addBulkExitItem() {
   }
 
   const existing = bulkExitItems.find((item) => item.productId === product.id);
-  const measureUnit = els.bulkExitMeasureUnit.value || "Pieza";
+  const measureUnit = selectedMeasureUnitValue(els.bulkExitMeasureUnit);
+  if (!measureUnit) {
+    showToast("Captura la unidad de medida.");
+    return;
+  }
   const nextQuantity = existing ? existing.quantity + quantity : quantity;
   if (nextQuantity > Number(product.stock)) {
     showToast("La lista supera el stock disponible de ese producto.");
@@ -1894,6 +2083,7 @@ function syncExitProductFromSearch() {
 function fillExitRegisterDefaults() {
   const product = state.products.find((item) => item.id === els.exitProduct.value);
   renderExitSupplierOptions(product?.supplier || els.exitSupplierType.value);
+  updateExitMeasureOptions();
   els.exitStockPreview.textContent = product ? formatUnits(product.stock) : "-";
   if (!els.exitRegisterQuantity.value) els.exitRegisterQuantity.value = product ? 1 : "";
   if (!els.exitRegisterNote.value) els.exitRegisterNote.value = exitTypeNotes[els.exitRegisterMovementType.value] || "Uso en cocina";
@@ -2040,7 +2230,11 @@ function openEditPurchaseModal(purchaseId) {
   els.editPurchaseSubtitle.textContent = `${purchase.productName} · ${formatDate(purchase.createdAt)} · Registrado por ${purchase.createdByName}`;
   els.editPurchaseSupplier.value = purchase.supplier || "";
   els.editPurchaseQuantity.value = purchase.quantity;
-  els.editPurchaseMeasureUnit.value = purchase.measureUnit || "Pieza";
+  renderMeasureUnitOptions(
+    els.editPurchaseMeasureUnit,
+    isMeatContext(purchase.category, purchase.subcategory, purchase),
+    purchase.measureUnit || "Pieza"
+  );
   els.editPurchaseUnitCost.value = purchase.unitCost;
   els.editPurchaseNote.value = purchase.note || "";
   els.editPurchaseModal.classList.add("active");
@@ -2060,12 +2254,16 @@ async function saveEditedPurchase(event) {
   const purchase = {
     supplier: els.editPurchaseSupplier.value.trim(),
     quantity: Number(els.editPurchaseQuantity.value),
-    measureUnit: els.editPurchaseMeasureUnit.value,
+    measureUnit: selectedMeasureUnitValue(els.editPurchaseMeasureUnit),
     unitCost: Number(els.editPurchaseUnitCost.value),
     note: els.editPurchaseNote.value.trim()
   };
   if (!purchase.supplier || !Number.isInteger(purchase.quantity) || purchase.quantity <= 0) {
     showToast("Captura un proveedor y una cantidad valida.");
+    return;
+  }
+  if (!purchase.measureUnit) {
+    showToast("Captura la unidad de medida.");
     return;
   }
   if (!Number.isFinite(purchase.unitCost) || purchase.unitCost < 0) {
@@ -2102,7 +2300,7 @@ async function savePurchaseFromForm(event) {
   const formData = new FormData(els.purchaseForm);
   const purchase = {
     productId: formData.get("productId"),
-    measureUnit: formData.get("measureUnit"),
+    measureUnit: selectedMeasureUnitValue(els.purchaseMeasureUnit),
     supplier: formData.get("supplier").trim(),
     quantity: Number(formData.get("quantity")),
     unitCost: Number(formData.get("unitCost")),
@@ -2111,6 +2309,10 @@ async function savePurchaseFromForm(event) {
 
   if (!purchase.productId || !purchase.supplier || !Number.isInteger(purchase.quantity) || purchase.quantity <= 0) {
     showToast("Selecciona producto, proveedor y cantidad valida.");
+    return;
+  }
+  if (!purchase.measureUnit) {
+    showToast("Captura la unidad de medida.");
     return;
   }
 
@@ -2390,7 +2592,7 @@ async function saveExitFromSection(event) {
   const quantity = Number(els.exitRegisterQuantity.value);
   const movementType = els.exitRegisterMovementType.value;
   const supplierType = els.exitSupplierType.value;
-  const measureUnit = els.exitMeasureUnit.value || "Pieza";
+  const measureUnit = selectedMeasureUnitValue(els.exitMeasureUnit);
   const note = els.exitRegisterNote.value.trim() || exitTypeNotes[movementType] || "Uso en cocina";
 
   if (!product) {
@@ -2400,6 +2602,10 @@ async function saveExitFromSection(event) {
 
   if (!Number.isInteger(quantity) || quantity <= 0) {
     showToast("Captura una cantidad valida.");
+    return;
+  }
+  if (!measureUnit) {
+    showToast("Captura la unidad de medida.");
     return;
   }
 
@@ -2535,7 +2741,11 @@ function openEditExitModal(exitId) {
   els.editExitMovementType.value = exit.movementType || "venta";
   els.editExitSupplierType.value = exit.supplierType || "Proveedor local";
   els.editExitQuantity.value = exit.unitsOut;
-  els.editExitMeasureUnit.value = exit.measureUnit || "Pieza";
+  renderMeasureUnitOptions(
+    els.editExitMeasureUnit,
+    isMeatContext(exit.category, exit.subcategory, exit),
+    exit.measureUnit || "Pieza"
+  );
   els.editExitNote.value = exit.note || exitTypeNotes[exit.movementType] || "Uso en cocina";
   els.editExitModal.classList.add("active");
   els.editExitModal.setAttribute("aria-hidden", "false");
@@ -2555,11 +2765,15 @@ async function saveEditedExit(event) {
     movementType: els.editExitMovementType.value,
     supplierType: els.editExitSupplierType.value.trim(),
     quantity: Number(els.editExitQuantity.value),
-    measureUnit: els.editExitMeasureUnit.value,
+    measureUnit: selectedMeasureUnitValue(els.editExitMeasureUnit),
     note: els.editExitNote.value.trim()
   };
   if (!exit.supplierType || !Number.isInteger(exit.quantity) || exit.quantity <= 0) {
     showToast("Captura un proveedor y una cantidad valida.");
+    return;
+  }
+  if (!exit.measureUnit) {
+    showToast("Captura la unidad de medida.");
     return;
   }
 
@@ -2932,7 +3146,7 @@ function openExitModal(product) {
   els.exitQuantity.max = product.stock;
   els.exitQuantity.value = product.stock > 0 ? 1 : "";
   els.exitMovementType.value = "venta";
-  els.exitModalMeasureUnit.value = "Pieza";
+  updateExitModalMeasureOptions(product);
   els.exitNote.value = exitTypeNotes.venta;
   els.exitModal.classList.add("active");
   els.exitModal.setAttribute("aria-hidden", "false");
@@ -3069,7 +3283,7 @@ async function saveDetailedExit(event) {
   const product = state.products.find((item) => item.id === productId);
   const quantity = Number(els.exitQuantity.value);
   const movementType = els.exitMovementType.value;
-  const measureUnit = els.exitModalMeasureUnit.value || "Pieza";
+  const measureUnit = selectedMeasureUnitValue(els.exitModalMeasureUnit);
   const note = els.exitNote.value.trim() || exitTypeNotes[movementType] || "Uso en cocina";
 
   if (!product) {
@@ -3079,6 +3293,10 @@ async function saveDetailedExit(event) {
 
   if (!Number.isInteger(quantity) || quantity <= 0) {
     showToast("Captura una cantidad valida.");
+    return;
+  }
+  if (!measureUnit) {
+    showToast("Captura la unidad de medida.");
     return;
   }
 

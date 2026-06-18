@@ -702,6 +702,11 @@ select,
   resize: vertical;
 }
 
+.custom-measure-input {
+  margin-top: 8px;
+  width: 100%;
+}
+
 .modal-copy {
   margin-top: 10px;
   color: var(--muted);
