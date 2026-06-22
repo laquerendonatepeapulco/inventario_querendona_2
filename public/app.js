@@ -2511,8 +2511,9 @@ async function downloadCategoryExcel() {
   const category = els.categoryFilter.value;
 
   const response = await window.Auth.apiFetch(
-    `/api/reports/products-category.xlsx?category=${encodeURIComponent(category)}`
+    `/api/reports/products.xlsx?category=${encodeURIComponent(category)}`
   );
+  
 
   if (!response.ok) {
     showToast("No se pudo generar el Excel.");
