@@ -1647,6 +1647,30 @@ async function loadPurchaseReport(from, to, filters = {}) {
   );
   const rows = result.rows.map(purchaseDto);
   return { range: { from, to }, filters, summary: summarizePurchaseReport(rows), rows };
+
+  async function loadProductsByCategoryReport(category = "") {
+  const params = [];
+  let whereClause = "";
+
+  if (category && category !== "all") {
+    params.push(category);
+    whereClause = `WHERE category = $1`;
+  }
+
+  const result = await query(
+    `
+      SELECT *
+      FROM products
+      ${whereClause}
+      ORDER BY name ASC
+    `,
+    params
+  );
+
+  return result.rows.map(productDto);
+}
+
+
 }
 
 async function buildPurchaseReportWorkbook(report) {
@@ -1759,6 +1783,46 @@ async function buildPurchaseReportWorkbook(report) {
 
   return workbook;
 }
+
+async function buildProductsWorkbook(products) {
+  const workbook = new ExcelJS.Workbook();
+
+  const sheet = workbook.addWorksheet("Productos");
+
+  sheet.addRow([
+    "Producto",
+    "SKU",
+    "Descripcion",
+    "Categoria",
+    "Subcategoria",
+    "Proveedor",
+    "Stock",
+    "Stock Minimo",
+    "Costo",
+    "Precio",
+    "Ubicacion"
+  ]);
+
+  products.forEach((p) => {
+    sheet.addRow([
+      p.name,
+      p.sku,
+      p.description,
+      p.category,
+      p.subcategory,
+      p.supplier,
+      p.stock,
+      p.minStock,
+      p.cost,
+      p.price,
+      p.location
+    ]);
+  });
+
+  return workbook;
+}
+
+
 
 function stockComparisonDto(row) {
   return {
@@ -3560,6 +3624,39 @@ app.get("/api/reports/income.xlsx", authRequired, adminRequired, async (req, res
     next(error);
   }
 });
+
+app.get("/api/reports/products.xlsx", authRequired, stockAccessRequired, async (req, res, next) => {
+  try {
+    const category = String(req.query.category || "");
+
+    const products = await loadProductsByCategoryReport(category);
+
+    const workbook = await buildProductsWorkbook(products);
+
+    const filename =
+      category && category !== "all"
+        ? `inventario-${category}.xlsx`
+        : "inventario-completo.xlsx";
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filename}"`
+    );
+
+    await workbook.xlsx.write(res);
+
+    res.end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 
 app.get("/api/reports/profit", authRequired, adminRequired, async (req, res, next) => {
   try {

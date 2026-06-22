@@ -88,6 +88,7 @@ const els = {
   navItems: document.querySelectorAll(".nav-item"),
   mobileNavSelect: document.querySelector("#mobileNavSelect"),
   categoryFilter: document.querySelector("#categoryFilter"),
+  downloadCategoryExcel: document.querySelector("#downloadCategoryExcel"),
   subcategoryFilter: document.querySelector("#subcategoryFilter"),
   stockFilter: document.querySelector("#stockFilter"),
   productSearch: document.querySelector("#productSearch"),
@@ -337,6 +338,7 @@ function bindEvents() {
   document.querySelector("#clearMovements").addEventListener("click", clearMovements);
   document.querySelector("#loadIncomeReport").addEventListener("click", loadIncomeReport);
   document.querySelector("#downloadIncomeReport").addEventListener("click", downloadIncomeReport);
+  document.querySelectorAll("#downloadCategoryExcel, #mobileDownloadCategoryExcel").forEach((button) => {button.addEventListener("click", downloadCategoryExcel);});
   document.querySelector("#loadExitReport").addEventListener("click", loadExitReport);
   document.querySelector("#downloadExitReport").addEventListener("click", downloadExitReport);
   document.querySelector("#openBulkExitModal").addEventListener("click", openBulkExitModal);
@@ -2463,6 +2465,78 @@ async function downloadIncomeReport() {
   anchor.click();
   URL.revokeObjectURL(url);
   showToast("Reporte de ingresos descargado.");
+}
+
+async function downloadCategoryExcel() {
+  try {
+    const category = els.categoryFilter.value;
+
+    const response = await window.Auth.apiFetch(
+      `/api/reports/products.xlsx?category=${encodeURIComponent(category)}`
+    );
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      showToast(payload.error || "No se pudo descargar el Excel.");
+      return;
+    }
+
+    const blob = await response.blob();
+
+    const url = URL.createObjectURL(blob);
+
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+
+    anchor.download =
+      category && category !== "all"
+        ? `inventario-${category}.xlsx`
+        : "inventario-completo.xlsx";
+
+    anchor.click();
+
+    URL.revokeObjectURL(url);
+
+    showToast("Excel descargado correctamente.");
+  } catch (error) {
+    console.error(error);
+    showToast("Error al descargar Excel.");
+  }
+}
+
+
+
+async function downloadCategoryExcel() {
+  const category = els.categoryFilter.value;
+
+  const response = await window.Auth.apiFetch(
+    `/api/reports/products-category.xlsx?category=${encodeURIComponent(category)}`
+  );
+
+  if (!response.ok) {
+    showToast("No se pudo generar el Excel.");
+    return;
+  }
+
+  const blob = await response.blob();
+
+  const url = URL.createObjectURL(blob);
+
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+
+  anchor.download =
+    category === "all"
+      ? "inventario_completo.xlsx"
+      : `inventario_${category}.xlsx`;
+
+  anchor.click();
+
+  URL.revokeObjectURL(url);
+
+  showToast("Excel descargado.");
 }
 
 async function loadProfitReport() {
