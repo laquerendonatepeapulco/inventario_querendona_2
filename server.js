@@ -3627,6 +3627,11 @@ app.get("/api/reports/income.xlsx", authRequired, adminRequired, async (req, res
 
 app.get("/api/reports/products.xlsx", authRequired, stockAccessRequired, async (req, res, next) => {
   console.log("ENTRO A PRODUCTS XLSX");
+return res.json({
+    ok: true,
+    category: req.query.category
+  });
+
   try {
     const category = String(req.query.category || "");
 
