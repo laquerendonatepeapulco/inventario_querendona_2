@@ -2506,40 +2506,6 @@ async function downloadCategoryExcel() {
 }
 
 
-
-async function downloadCategoryExcel() {
-  const category = els.categoryFilter.value;
-
-  const response = await window.Auth.apiFetch(
-    `/api/reports/products.xlsx?category=${encodeURIComponent(category)}`
-  );
-  
-
-  if (!response.ok) {
-    showToast("No se pudo generar el Excel.");
-    return;
-  }
-
-  const blob = await response.blob();
-
-  const url = URL.createObjectURL(blob);
-
-  const anchor = document.createElement("a");
-
-  anchor.href = url;
-
-  anchor.download =
-    category === "all"
-      ? "inventario_completo.xlsx"
-      : `inventario_${category}.xlsx`;
-
-  anchor.click();
-
-  URL.revokeObjectURL(url);
-
-  showToast("Excel descargado.");
-}
-
 async function loadProfitReport() {
   if (!requireAdmin()) return;
   if (!els.profitStart.value || !els.profitEnd.value) {

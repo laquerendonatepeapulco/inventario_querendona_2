@@ -3626,18 +3626,18 @@ app.get("/api/reports/income.xlsx", authRequired, adminRequired, async (req, res
 });
 
 app.get("/api/reports/products.xlsx", authRequired, stockAccessRequired, async (req, res, next) => {
-  console.log("ENTRO A PRODUCTS XLSX");
-return res.json({
-    ok: true,
-    category: req.query.category
-  });
-
   try {
     const category = String(req.query.category || "");
 
+    console.log("CATEGORY:", category);
+
     const products = await loadProductsByCategoryReport(category);
 
+    console.log("PRODUCTS:", products.length);
+
     const workbook = await buildProductsWorkbook(products);
+
+    console.log("WORKBOOK CREADO");
 
     const filename =
       category && category !== "all"
@@ -3654,10 +3654,15 @@ return res.json({
       `attachment; filename="${filename}"`
     );
 
+    console.log("ESCRIBIENDO XLSX");
+
     await workbook.xlsx.write(res);
+
+    console.log("XLSX ENVIADO");
 
     res.end();
   } catch (error) {
+    console.error(error);
     next(error);
   }
 });
