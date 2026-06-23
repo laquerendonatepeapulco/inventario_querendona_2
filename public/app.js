@@ -597,6 +597,20 @@ function renderSession() {
     node.disabled = !isAdmin();
   });
 
+  if (!isAdmin()) {
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    const panel = item.dataset.panel;
+
+    const allowedPanels = ["entries", "exits"];
+
+    if (!allowedPanels.includes(panel)) {
+      item.style.display = "none";
+    }
+  });
+
+  switchPanel("entries");
+}
+
   const adminControls = [
     "#downloadBackup",
     "#resetDemo",
@@ -716,6 +730,13 @@ function renderResetPasswordUsers() {
 }
 
 function switchPanel(panel) {
+  if (!isAdmin()) {
+  const allowedPanels = ["entries", "exits"];
+
+  if (!allowedPanels.includes(panelName)) {
+    panelName = "entries";
+  }
+}
   activePanel = panel;
   els.panels.forEach((node) => node.classList.toggle("active", node.id === panel));
   els.navItems.forEach((node) => node.classList.toggle("active", node.dataset.panel === panel));
