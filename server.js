@@ -1790,35 +1790,58 @@ async function buildProductsWorkbook(products) {
 
   const sheet = workbook.addWorksheet("Productos");
 
-  sheet.addRow([
-    "Producto",
-    "SKU",
-    "Descripcion",
-    "Categoria",
-    "Subcategoria",
-    "Proveedor",
-    "Stock",
-    "Stock Minimo",
-    "Costo",
-    "Precio",
-    "Ubicacion"
-  ]);
+  const headerRow = sheet.addRow([
+  "Producto",
+  "Descripcion",
+  "Categoria",
+  "Subcategoria",
+  "Proveedor",
+  "Stock",
+  "Precio",
+  "Costo"
+]);
+headerRow.font = {
+  bold: true,
+  size: 12
+};
+
+headerRow.alignment = {
+  vertical: "middle",
+  horizontal: "center"
+};
+
+headerRow.eachCell((cell) => {
+  cell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "D9EAD3" }
+  };
+});
+
+headerRow.height = 25;
+sheet.columns = [
+  { width: 35 }, // Producto
+  { width: 40 }, // Descripcion
+  { width: 25 }, // Categoria
+  { width: 25 }, // Subcategoria
+  { width: 25 }, // Proveedor
+  { width: 12 }, // Stock
+  { width: 15 }, // Precio
+  { width: 15 }  // Costo
+];
 
   products.forEach((p) => {
-    sheet.addRow([
-      p.name,
-      p.sku,
-      p.description,
-      p.category,
-      p.subcategory,
-      p.supplier,
-      p.stock,
-      p.minStock,
-      p.cost,
-      p.price,
-      p.location
-    ]);
-  });
+  sheet.addRow([
+    p.name,
+    p.description,
+    p.category,
+    p.subcategory,
+    p.supplier,
+    p.stock,
+    p.price,
+    p.cost
+  ]);
+});
 
   return workbook;
 }
@@ -3629,46 +3652,27 @@ app.get("/api/reports/income.xlsx", authRequired, adminRequired, async (req, res
 app.get("/api/reports/products.xlsx", authRequired, stockAccessRequired, async (req, res, next) => {
   try {
     const category = String(req.query.category || "");
-
-    console.log("CATEGORY:", category);
-
     const products = await loadProductsByCategoryReport(category);
-
-    console.log("PRODUCTS:", products.length);
-
     const workbook = await buildProductsWorkbook(products);
-
-    console.log("WORKBOOK CREADO");
-
     const filename =
       category && category !== "all"
         ? `inventario-${category}.xlsx`
         : "inventario-completo.xlsx";
-
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="${filename}"`
     );
-
-    console.log("ESCRIBIENDO XLSX");
-
     await workbook.xlsx.write(res);
-
-    console.log("XLSX ENVIADO");
-
     res.end();
   } catch (error) {
     console.error(error);
     next(error);
   }
 });
-
-
 
 app.get("/api/reports/profit", authRequired, adminRequired, async (req, res, next) => {
   try {
