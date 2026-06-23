@@ -1646,7 +1646,11 @@ async function loadPurchaseReport(from, to, filters = {}) {
     params
   );
   const rows = result.rows.map(purchaseDto);
-  return { range: { from, to }, filters, summary: summarizePurchaseReport(rows), rows };
+  return { range: { from, to }, 
+  filters, 
+  summary: summarizePurchaseReport(rows), 
+  rows };
+}
 
   async function loadProductsByCategoryReport(category = "") {
   const params = [];
@@ -1668,9 +1672,6 @@ async function loadPurchaseReport(from, to, filters = {}) {
   );
 
   return result.rows.map(productDto);
-}
-
-
 }
 
 async function buildPurchaseReportWorkbook(report) {
