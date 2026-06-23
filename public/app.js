@@ -597,7 +597,7 @@ function renderSession() {
     node.disabled = !isAdmin();
   });
 
-  if (!isAdmin()) {
+if (!isAdmin()) {
   document.querySelectorAll(".nav-item").forEach((item) => {
     const panel = item.dataset.panel;
 
@@ -730,18 +730,28 @@ function renderResetPasswordUsers() {
 }
 
 function switchPanel(panel) {
-  if (!isAdmin()) {
-  const allowedPanels = ["entries", "exits"];
 
-  if (!allowedPanels.includes(panelName)) {
-    panelName = "entries";
+  if (!isAdmin()) {
+    const allowedPanels = ["entries", "exits"];
+
+    if (!allowedPanels.includes(panel)) {
+      panel = "entries";
+    }
   }
-}
+
   activePanel = panel;
-  els.panels.forEach((node) => node.classList.toggle("active", node.id === panel));
-  els.navItems.forEach((node) => node.classList.toggle("active", node.dataset.panel === panel));
+
+  els.panels.forEach((node) =>
+    node.classList.toggle("active", node.id === panel)
+  );
+
+  els.navItems.forEach((node) =>
+    node.classList.toggle("active", node.dataset.panel === panel)
+  );
+
   els.mobileNavSelect.value = panel;
-  if (panel === "dashboard") animateChart();
+
+  if (panel === "dashboard") animateDashboardChart();
   if (panel === "entries" && canManageStock() && !state.purchaseReport) loadPurchaseReport();
   if (panel === "reports" && isAdmin() && !state.incomeReport) loadIncomeReport();
   if (panel === "exits" && canManageStock() && !state.exitReport) loadExitReport();
