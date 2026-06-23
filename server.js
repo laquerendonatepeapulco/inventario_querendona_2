@@ -1790,6 +1790,17 @@ async function buildProductsWorkbook(products) {
 
   const sheet = workbook.addWorksheet("Productos");
 
+  // Congelar encabezado
+  sheet.views = [
+    { state: "frozen", ySplit: 1 }
+  ];
+
+  // Filtro automático
+  sheet.autoFilter = {
+    from: "A1",
+    to: "H1"
+  };
+
   const headerRow = sheet.addRow([
   "Producto",
   "Descripcion",
@@ -1800,6 +1811,8 @@ async function buildProductsWorkbook(products) {
   "Precio",
   "Costo"
 ]);
+
+
 headerRow.font = {
   bold: true,
   size: 12
@@ -1819,6 +1832,15 @@ headerRow.eachCell((cell) => {
 });
 
 headerRow.height = 25;
+
+headerRow.eachCell((cell) => {
+  cell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "D9EAD3" }
+  };
+});
+
 sheet.columns = [
   { width: 35 }, // Producto
   { width: 40 }, // Descripcion
@@ -1829,6 +1851,25 @@ sheet.columns = [
   { width: 15 }, // Precio
   { width: 15 }  // Costo
 ];
+
+// Centrar columnas numéricas
+sheet.getColumn(6).alignment = {
+  horizontal: "center"
+};
+
+sheet.getColumn(7).alignment = {
+  horizontal: "center"
+};
+
+sheet.getColumn(8).alignment = {
+  horizontal: "center"
+};
+
+// Formato moneda
+sheet.getColumn(7).numFmt = '$#,##0.00';
+sheet.getColumn(8).numFmt = '$#,##0.00';
+
+
 
   products.forEach((p) => {
   sheet.addRow([
