@@ -747,6 +747,20 @@ function switchPanel(panel) {
 
   activePanel = panel;
 
+  const excelButton = document.getElementById("downloadCategoryExcel");
+
+if (excelButton) {
+    excelButton.style.display =
+        panel === "products" && isAdmin()
+            ? "inline-flex"
+            : "none";
+}
+
+  if (els.downloadCategoryExcel) {
+    els.downloadCategoryExcel.hidden =
+        !isAdmin() || panel !== "products";
+}
+
   const excelButton =
   document.querySelector("#downloadCategoryExcel");
 
@@ -767,6 +781,7 @@ function switchPanel(panel) {
   );
 
   els.mobileNavSelect.value = panel;
+
 
   if (panel === "dashboard") animateDashboardChart();
   if (panel === "entries" && canManageStock() && !state.purchaseReport) loadPurchaseReport();
