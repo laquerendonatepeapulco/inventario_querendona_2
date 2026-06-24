@@ -1785,32 +1785,47 @@ async function buildPurchaseReportWorkbook(report) {
   return workbook;
 }
 
-async function buildProductsWorkbook(products) {
+
+async function buildProductsWorkbook(products, category = "Todas") {
   const workbook = new ExcelJS.Workbook();
 
   const sheet = workbook.addWorksheet("Productos");
 
-  // Congelar encabezado
-  sheet.views = [
-    { state: "frozen", ySplit: 1 }
-  ];
-
-  // Filtro automático
-  sheet.autoFilter = {
-    from: "A1",
-    to: "H1"
+  // TITULO
+  sheet.mergeCells("A1:H1");
+  const titleRow = sheet.getCell("A1");
+  titleRow.value = "Inventario La Querendona";
+  titleRow.font = {
+    bold: true,
+    size: 16
+  };
+  titleRow.alignment = {
+    horizontal: "center"
   };
 
+  // FECHA
+  sheet.mergeCells("A2:H2");
+  sheet.getCell("A2").value =
+    `Generado: ${new Date().toLocaleDateString()}`;
+
+  // CATEGORIA
+  sheet.mergeCells("A3:H3");
+  sheet.getCell("A3").value =
+    `Categoría: ${category || "Todas"}`;
+
+  // FILA ENCABEZADOS
+  sheet.addRow([]);
+
   const headerRow = sheet.addRow([
-  "Producto",
-  "Descripcion",
-  "Categoria",
-  "Subcategoria",
-  "Proveedor",
-  "Stock",
-  "Precio",
-  "Costo"
-]);
+    "Producto",
+    "Descripcion",
+    "Categoria",
+    "Subcategoria",
+    "Proveedor",
+    "Stock",
+    "Precio",
+    "Costo"
+  ]);
 
 
 headerRow.font = {
@@ -1823,21 +1838,59 @@ headerRow.alignment = {
   horizontal: "center"
 };
 
+headerRow.height = 25;
+
 headerRow.eachCell((cell) => {
+  cell.font = {
+    bold: true,
+    color: { argb: "000000" }
+  };
+
   cell.fill = {
     type: "pattern",
     pattern: "solid",
     fgColor: { argb: "D9EAD3" }
   };
+
+  cell.alignment = {
+    horizontal: "center",
+    vertical: "middle"
+  };
+
+  cell.border = {
+    top: { style: "thin" },
+    left: { style: "thin" },
+    bottom: { style: "thin" },
+    right: { style: "thin" }
+  };
 });
 
 headerRow.height = 25;
 
+headerRow.height = 25;
+
 headerRow.eachCell((cell) => {
+  cell.font = {
+    bold: true,
+    color: { argb: "000000" }
+  };
+
   cell.fill = {
     type: "pattern",
     pattern: "solid",
     fgColor: { argb: "D9EAD3" }
+  };
+
+  cell.alignment = {
+    horizontal: "center",
+    vertical: "middle"
+  };
+
+  cell.border = {
+    top: { style: "thin" },
+    left: { style: "thin" },
+    bottom: { style: "thin" },
+    right: { style: "thin" }
   };
 });
 
@@ -1883,6 +1936,55 @@ sheet.getColumn(8).numFmt = '$#,##0.00';
     p.cost
   ]);
 });
+
+// FILTROS AUTOMATICOS
+sheet.autoFilter = {
+  from: {
+    row: 5,
+    column: 1
+  },
+  to: {
+    row: 5,
+    column: 8
+  }
+};
+
+// CONGELAR ENCABEZADOS
+sheet.views = [
+  {
+    state: "frozen",
+    ySplit: 5
+  }
+];
+
+// ANCHO COLUMNAS
+sheet.columns = [
+  { width: 30 },
+  { width: 30 },
+  { width: 20 },
+  { width: 20 },
+  { width: 25 },
+  { width: 12 },
+  { width: 12 },
+  { width: 12 }
+];
+
+// FORMATO MONEDA
+sheet.getColumn(7).numFmt = '$#,##0.00';
+sheet.getColumn(8).numFmt = '$#,##0.00';
+
+// CENTRAR STOCK
+sheet.getColumn(6).alignment = {
+  horizontal: "center"
+};
+
+sheet.getColumn(7).alignment = {
+  horizontal: "center"
+};
+
+sheet.getColumn(8).alignment = {
+  horizontal: "center"
+};
 
   return workbook;
 }
@@ -3694,7 +3796,7 @@ app.get("/api/reports/products.xlsx", authRequired, stockAccessRequired, async (
   try {
     const category = String(req.query.category || "");
     const products = await loadProductsByCategoryReport(category);
-    const workbook = await buildProductsWorkbook(products);
+    const workbook = await buildProductsWorkbook(products, category);
     const filename =
       category && category !== "all"
         ? `inventario-${category}.xlsx`
