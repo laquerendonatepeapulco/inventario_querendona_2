@@ -755,21 +755,7 @@ if (excelButton) {
             ? "inline-flex"
             : "none";
 }
-
-  if (els.downloadCategoryExcel) {
-    els.downloadCategoryExcel.hidden =
-        !isAdmin() || panel !== "products";
-}
-
-  const excelButton =
-  document.querySelector("#downloadCategoryExcel");
-
-  if (excelButton) {
-    excelButton.style.display =
-      panel === "products" && isAdmin()
-        ? "inline-flex"
-        : "none";
-  }   
+ 
 
 
   els.panels.forEach((node) =>
