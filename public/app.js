@@ -2703,16 +2703,25 @@ async function saveExitFromSection(event) {
     return;
   }
 
-  await loadRemoteData();
-  state.exitReport = null;
-  state.incomeReport = null;
-  state.profitReport = null;
-  state.comparisonReport = null;
-  render();
-  resetExitRegisterForm();
-  await loadExitReport();
-  showToast("Uso de insumo registrado.");
+  const currentPanel = activePanel;
+
+await loadRemoteData();
+
+state.exitReport = null;
+state.incomeReport = null;
+state.profitReport = null;
+state.comparisonReport = null;
+
+render();
+resetExitRegisterForm();
+
+await loadExitReport();
+switchPanel(currentPanel);
+switchPanel("exits");
+showToast("Uso de insumo registrado.");
 }
+
+
 
 function renderExitReport() {
   if (!els.exitReportRows) return;
