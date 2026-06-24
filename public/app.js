@@ -747,6 +747,17 @@ function switchPanel(panel) {
 
   activePanel = panel;
 
+  const excelButton =
+  document.querySelector("#downloadCategoryExcel");
+
+  if (excelButton) {
+    excelButton.style.display =
+      panel === "products" && isAdmin()
+        ? "inline-flex"
+        : "none";
+  }   
+
+
   els.panels.forEach((node) =>
     node.classList.toggle("active", node.id === panel)
   );
@@ -2379,6 +2390,7 @@ async function savePurchaseFromForm(event) {
   state.comparisonReport = null;
   render();
   showToast("Entrada registrada y stock actualizado.");
+  switchPanel("entries");
 }
 
 async function downloadPurchaseReport() {
