@@ -598,18 +598,24 @@ function renderSession() {
   });
 
 if (!isAdmin()) {
+  const allowedPanels = ["entries", "exits"];
+
   document.querySelectorAll(".nav-item").forEach((item) => {
-    const panel = item.dataset.panel;
-
-    const allowedPanels = ["entries", "exits"];
-
-    if (!allowedPanels.includes(panel)) {
+    if (!allowedPanels.includes(item.dataset.panel)) {
       item.style.display = "none";
+    }
+  });
+
+  Array.from(els.mobileNavSelect.options).forEach((option) => {
+    if (!allowedPanels.includes(option.value)) {
+      option.remove();
     }
   });
 
   switchPanel("entries");
 }
+
+
 
   const adminControls = [
     "#downloadBackup",
