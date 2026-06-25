@@ -2349,17 +2349,37 @@ async function savePurchaseFromForm(event) {
   if (!requireStockAccess()) return;
 
   const formData = new FormData(els.purchaseForm);
+
+  let quantity = Number(formData.get("quantity"));
+const measureUnit = selectedMeasureUnitValue(els.purchaseMeasureUnit);
+
+const product = state.products.find(
+    p => p.id === formData.get("productId")
+);
+
+// Solo para productos de la categoría Carne
+if (product?.category === "Carne") {
+
+    if (measureUnit === "Gramos") {
+        quantity = quantity / 1000;
+    }
+
+    if (measureUnit === "Kilogramos") {
+        quantity = Number(quantity);
+    }
+
+}
   const purchase = {
     productId: formData.get("productId"),
-    measureUnit: selectedMeasureUnitValue(els.purchaseMeasureUnit),
+    measureUnit,
     supplier: formData.get("supplier").trim(),
-    quantity: Number(formData.get("quantity")),
+    quantity,
     unitCost: Number(formData.get("unitCost")),
     note: formData.get("note").trim()
-  };
+};
 
-  if (!purchase.productId || !purchase.supplier || !Number.isInteger(purchase.quantity) || purchase.quantity <= 0) {
-    showToast("Selecciona producto, proveedor y cantidad valida.");
+  if (!purchase.productId || !purchase.supplier || !Number.isFinite(purchase.quantity) || purchase.quantity <= 0) {
+    showToast("Selecciona producto, proveedor y cantidad válida.");
     return;
   }
   if (!purchase.measureUnit) {
