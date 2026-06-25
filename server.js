@@ -2667,11 +2667,11 @@ function sanitizePurchase(input) {
     throw error;
   }
 
-  if (!Number.isInteger(purchase.quantity) || purchase.quantity <= 0) {
-    const error = new Error("La cantidad debe ser un entero mayor a cero");
+  if (!Number.isFinite(purchase.quantity) || purchase.quantity <= 0) {
+    const error = new Error("La cantidad debe ser un número mayor a cero");
     error.status = 400;
     throw error;
-  }
+}
 
   if (!Number.isFinite(purchase.unitCost) || purchase.unitCost < 0) {
     const error = new Error("El costo unitario debe ser positivo");
@@ -2703,15 +2703,21 @@ async function applyPurchase(client, purchase, userId) {
       product.sku,
       product.category,
       product.subcategory || "",
-      purchase.supplier,
-      purchase.quantity,
-      purchase.measureUnit,
-      purchase.unitCost,
+      stockQuantity,
+    purchase.supplier,
+    purchase.unitCost,
+    product.id,
       totalCost,
       purchase.note,
       userId
     ]
   );
+
+  let stockQuantity = purchase.quantity;
+
+if (purchase.measureUnit === "Gramo") {
+    stockQuantity = purchase.quantity / 1000;
+}
 
   const updated = await client.query(
     `UPDATE products

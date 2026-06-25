@@ -1441,9 +1441,8 @@ function syncCustomMeasureInput(select, shouldFocus = false) {
 }
 
 function selectedMeasureUnitValue(select) {
-  if (!select) return "Pieza";
-  if (select.value !== MEAT_CUSTOM_MEASURE_VALUE) return select.value || "Pieza";
-  return String(ensureCustomMeasureInput(select)?.value || "").trim();
+    if (!select) return "Pieza";
+    return select.value || "Pieza";
 }
 
 function renderMeasureUnitOptions(select, isMeat, preferredValue) {
@@ -2357,6 +2356,11 @@ const product = state.products.find(
     p => p.id === formData.get("productId")
 );
 
+const stockQuantity =
+    measureUnit === "Gramo"
+        ? quantity / 1000
+        : quantity;
+
 // Solo para productos de la categoría Carne
 if (product?.category === "Carne") {
 
@@ -2373,7 +2377,10 @@ if (product?.category === "Carne") {
     productId: formData.get("productId"),
     measureUnit,
     supplier: formData.get("supplier").trim(),
+
     quantity,
+    stockQuantity,
+
     unitCost: Number(formData.get("unitCost")),
     note: formData.get("note").trim()
 };
