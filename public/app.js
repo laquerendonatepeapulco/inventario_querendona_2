@@ -253,7 +253,8 @@ const formatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
   currencyDisplay: "code",
-  maximumFractionDigits: 0
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
 });
 
 const percentFormatter = new Intl.NumberFormat("es-MX", {
@@ -2694,7 +2695,7 @@ function openEditPurchaseModal(purchaseId) {
     isMeatContext(purchase.category, purchase.subcategory, purchase),
     purchase.measureUnit || "Pieza"
   );
-  els.editPurchaseUnitCost.value = purchase.unitCost;
+  els.editPurchaseUnitCost.value = Number(purchase.unitCost || 0).toFixed(2);
   els.editPurchaseNote.value = purchase.note || "";
   els.editPurchaseModal.classList.add("active");
   els.editPurchaseModal.setAttribute("aria-hidden", "false");
@@ -3567,7 +3568,7 @@ function openModal(product) {
   if (product) {
     Object.entries(product).forEach(([key, value]) => {
       const field = document.querySelector(`#${key}`);
-      if (field) field.value = value;
+      if (field) field.value = key === "price" ? Number(value || 0).toFixed(2) : value;
     });
   }
 
