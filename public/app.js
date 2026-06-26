@@ -1446,8 +1446,9 @@ function syncCustomMeasureInput(select, shouldFocus = false) {
 }
 
 function selectedMeasureUnitValue(select) {
-    if (!select) return "Pieza";
-    return select.value || "Pieza";
+  if (!select) return "Pieza";
+  if (select.value !== MEAT_CUSTOM_MEASURE_VALUE) return select.value || "Pieza";
+  return String(ensureCustomMeasureInput(select)?.value || "").trim();
 }
 
 function hasInvalidCustomMeatMeasure(select) {
@@ -1489,6 +1490,46 @@ function handleMeasureUnitChange(select) {
 function handleCustomMeasureChange(select) {
   if (select === els.purchaseMeasureUnit) updatePurchaseTotal();
   if (select === els.exitMeasureUnit) updateExitStockPreview();
+}
+
+function toggleQuantityField(input, isMeat) {
+  if (!input) return;
+  const label = input.closest("label");
+  if (label) label.hidden = Boolean(isMeat);
+  input.required = !isMeat;
+  if (isMeat) input.value = 1;
+}
+
+function updatePurchaseQuantityVisibility() {
+  const product = state.products.find((item) => item.id === els.purchaseProduct.value);
+  toggleQuantityField(
+    els.purchaseQuantity,
+    isMeatContext(els.purchaseCategory.value, els.purchaseSubcategory.value, product)
+  );
+}
+
+function updateBulkPurchaseQuantityVisibility() {
+  const product = state.products.find((item) => item.id === els.bulkPurchaseProduct.value);
+  toggleQuantityField(
+    els.bulkPurchaseQuantity,
+    isMeatContext(els.bulkPurchaseCategory.value, els.bulkPurchaseSubcategory.value, product)
+  );
+}
+
+function updateExitQuantityVisibility() {
+  const product = state.products.find((item) => item.id === els.exitProduct.value);
+  toggleQuantityField(
+    els.exitRegisterQuantity,
+    isMeatContext(els.exitCategory.value, els.exitSubcategory.value, product)
+  );
+}
+
+function updateBulkExitQuantityVisibility() {
+  const product = state.products.find((item) => item.id === els.bulkExitProduct.value);
+  toggleQuantityField(
+    els.bulkExitQuantity,
+    isMeatContext(els.bulkExitCategory.value, els.bulkExitSubcategory.value, product)
+  );
 }
 
 function renderMeasureUnitOptions(select, isMeat, preferredValue) {
@@ -1540,6 +1581,7 @@ function updatePurchaseMeasureOptions(preferredValue) {
     isMeatContext(els.purchaseCategory.value, els.purchaseSubcategory.value, product),
     preferredValue
   );
+  updatePurchaseQuantityVisibility();
 }
 
 function updateBulkPurchaseMeasureOptions(preferredValue) {
@@ -1549,6 +1591,7 @@ function updateBulkPurchaseMeasureOptions(preferredValue) {
     isMeatContext(els.bulkPurchaseCategory.value, els.bulkPurchaseSubcategory.value, product),
     preferredValue
   );
+  updateBulkPurchaseQuantityVisibility();
 }
 
 function updateExitMeasureOptions(preferredValue) {
@@ -1558,6 +1601,7 @@ function updateExitMeasureOptions(preferredValue) {
     isMeatContext(els.exitCategory.value, els.exitSubcategory.value, product),
     preferredValue
   );
+  updateExitQuantityVisibility();
 }
 
 function updateBulkExitMeasureOptions(preferredValue) {
@@ -1567,6 +1611,7 @@ function updateBulkExitMeasureOptions(preferredValue) {
     isMeatContext(els.bulkExitCategory.value, els.bulkExitSubcategory.value, product),
     preferredValue
   );
+  updateBulkExitQuantityVisibility();
 }
 
 function updateExitModalMeasureOptions(product, preferredValue) {
@@ -1717,6 +1762,7 @@ function addBulkPurchaseItem() {
   els.bulkPurchaseProduct.value = "";
   els.bulkPurchaseQuantity.value = "";
   els.bulkPurchaseUnitCost.value = "";
+  updateBulkPurchaseMeasureOptions();
   renderBulkPurchaseItems();
   showToast("Producto agregado a la entrada grande.");
 }
@@ -1985,6 +2031,7 @@ function addBulkExitItem() {
   els.bulkExitProduct.value = "";
   els.bulkExitQuantity.value = "";
   els.bulkExitQuantity.removeAttribute("max");
+  updateBulkExitMeasureOptions();
   renderBulkExitItems();
   showToast("Producto agregado a la salida grande.");
 }
