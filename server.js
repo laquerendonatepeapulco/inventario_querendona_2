@@ -3721,6 +3721,78 @@ app.patch("/api/purchases/:id", authRequired, adminRequired, async (req, res, ne
   }
 });
 
+app.delete("/api/purchases/:id", authRequired, adminRequired, async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const purchaseResult = await client.query(
+      `SELECT * FROM purchase_entries WHERE id = $1 FOR UPDATE`,
+      [req.params.id]
+    );
+    const previous = purchaseResult.rows[0];
+    if (!previous) {
+      const error = new Error("Entrada no encontrada");
+      error.status = 404;
+      throw error;
+    }
+
+    let updatedProduct = null;
+    if (previous.product_id) {
+      const productResult = await client.query(`SELECT * FROM products WHERE id = $1 FOR UPDATE`, [previous.product_id]);
+      const product = productResult.rows[0];
+      if (product) {
+        const nextStock = Number(product.stock) - Number(previous.quantity);
+        if (nextStock < 0) {
+          const error = new Error(`No se puede borrar la entrada porque ${product.name} ya tiene unidades utilizadas`);
+          error.status = 400;
+          throw error;
+        }
+
+        const updated = await client.query(
+          `UPDATE products
+           SET stock = $1, updated_at = now()
+           WHERE id = $2
+           RETURNING *`,
+          [nextStock, product.id]
+        );
+        updatedProduct = updated.rows[0];
+      }
+    }
+
+    let movementId = previous.movement_id;
+    if (!movementId && previous.product_id) {
+      const movementResult = await client.query(
+        `SELECT id
+         FROM movements
+         WHERE product_id = $1
+           AND movement_type = 'compra'
+           AND created_at BETWEEN $2::timestamptz - INTERVAL '5 minutes' AND $2::timestamptz + INTERVAL '5 minutes'
+         ORDER BY ABS(EXTRACT(EPOCH FROM (created_at - $2::timestamptz))) ASC
+         LIMIT 1
+         FOR UPDATE`,
+        [previous.product_id, previous.created_at]
+      );
+      movementId = movementResult.rows[0]?.id || null;
+    }
+
+    if (movementId) {
+      await client.query(`DELETE FROM movements WHERE id = $1`, [movementId]);
+    }
+    await client.query(`DELETE FROM purchase_entries WHERE id = $1`, [previous.id]);
+
+    await client.query("COMMIT");
+    res.json({
+      ok: true,
+      product: updatedProduct ? productDto(updatedProduct) : null
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
 app.post("/api/purchases", authRequired, stockAccessRequired, async (req, res, next) => {
   const client = await pool.connect();
   try {

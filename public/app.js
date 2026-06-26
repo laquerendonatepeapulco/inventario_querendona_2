@@ -164,6 +164,7 @@ const els = {
   editPurchaseMeasureUnit: document.querySelector("#editPurchaseMeasureUnit"),
   editPurchaseUnitCost: document.querySelector("#editPurchaseUnitCost"),
   editPurchaseNote: document.querySelector("#editPurchaseNote"),
+  deleteEditPurchase: document.querySelector("#deleteEditPurchase"),
   bulkPurchaseModal: document.querySelector("#bulkPurchaseModal"),
   bulkPurchaseSupplier: document.querySelector("#bulkPurchaseSupplier"),
   bulkPurchaseCategory: document.querySelector("#bulkPurchaseCategory"),
@@ -358,6 +359,7 @@ function bindEvents() {
   document.querySelector("#cancelBulkPurchase").addEventListener("click", closeBulkPurchaseModal);
   document.querySelector("#closeEditPurchaseModal").addEventListener("click", closeEditPurchaseModal);
   document.querySelector("#cancelEditPurchase").addEventListener("click", closeEditPurchaseModal);
+  els.deleteEditPurchase.addEventListener("click", deleteEditedPurchase);
   document.querySelector("#addBulkPurchaseItem").addEventListener("click", addBulkPurchaseItem);
   document.querySelector("#saveBulkPurchase").addEventListener("click", saveBulkPurchase);
   document.querySelector("#clearPurchaseForm").addEventListener("click", resetPurchaseForm);
@@ -2466,6 +2468,35 @@ async function saveEditedPurchase(event) {
   await loadPurchaseReport();
   render();
   showToast("Entrada actualizada y stock corregido.");
+}
+
+async function deleteEditedPurchase() {
+  if (!requireAdmin()) return;
+
+  const purchaseId = els.editPurchaseId.value;
+  if (!purchaseId) {
+    showToast("No se encontro la entrada seleccionada.");
+    return;
+  }
+
+  if (!confirm("Borrar esta entrada? Se corregira el stock y se eliminara el movimiento asociado.")) return;
+
+  const response = await window.Auth.apiFetch(`/api/purchases/${purchaseId}`, { method: "DELETE" });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo borrar la entrada.");
+    return;
+  }
+
+  closeEditPurchaseModal();
+  state.incomeReport = null;
+  state.exitReport = null;
+  state.comparisonReport = null;
+  state.profitReport = null;
+  await loadRemoteData();
+  await loadPurchaseReport();
+  render();
+  showToast("Entrada borrada y stock corregido.");
 }
 
 async function savePurchaseFromForm(event) {
