@@ -451,6 +451,7 @@ function bindEvents() {
   els.purchaseReportProduct.addEventListener("change", loadPurchaseReport);
   els.purchaseQuantity.addEventListener("input", updatePurchaseTotal);
   els.purchaseUnitCost.addEventListener("input", updatePurchaseTotal);
+  els.exitRegisterQuantity.addEventListener("input", updateExitStockPreview);
   [
     els.purchaseMeasureUnit,
     els.bulkPurchaseMeasureUnit,
@@ -460,7 +461,7 @@ function bindEvents() {
     els.editPurchaseMeasureUnit,
     els.editExitMeasureUnit
   ].forEach((select) => {
-    select?.addEventListener("change", () => syncCustomMeasureInput(select, true));
+    select?.addEventListener("change", () => handleMeasureUnitChange(select));
   });
   els.modal.addEventListener("click", (event) => {
     if (event.target === els.modal) closeModal();
@@ -1349,7 +1350,10 @@ function fillPurchaseDefaults() {
 function updatePurchaseTotal() {
   if (!els.purchaseTotal) return;
   const quantity = Number(els.purchaseQuantity.value || 0);
-  const unitCost = Number(els.purchaseUnitCost.value || 0);
+  const unitCost = measuredUnitPrice(
+    Number(els.purchaseUnitCost.value || 0),
+    selectedMeasureUnitValue(els.purchaseMeasureUnit)
+  );
   const total = Number.isFinite(quantity) && Number.isFinite(unitCost) ? quantity * unitCost : 0;
   els.purchaseTotal.textContent = formatter.format(Math.max(total, 0));
 }
@@ -1425,6 +1429,7 @@ function ensureCustomMeasureInput(select) {
   input.maxLength = 40;
   input.autocomplete = "off";
   input.hidden = true;
+  input.addEventListener("input", () => handleCustomMeasureChange(select));
   select.insertAdjacentElement("afterend", input);
   return input;
 }
@@ -1443,6 +1448,47 @@ function syncCustomMeasureInput(select, shouldFocus = false) {
 function selectedMeasureUnitValue(select) {
     if (!select) return "Pieza";
     return select.value || "Pieza";
+}
+
+function hasInvalidCustomMeatMeasure(select) {
+  return select?.value === MEAT_CUSTOM_MEASURE_VALUE && !measureUnitKgFactor(selectedMeasureUnitValue(select));
+}
+
+function measureUnitKgFactor(value) {
+  const text = normalizeSearch(value).replace(",", ".");
+  const fraction = text.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*kg$/);
+  if (fraction) {
+    const numerator = Number(fraction[1]);
+    const denominator = Number(fraction[2]);
+    return denominator > 0 ? numerator / denominator : null;
+  }
+
+  const kilograms = text.match(/^(\d+(?:\.\d+)?)\s*(kg|kilo|kilos|kilogramo|kilogramos)$/);
+  if (kilograms) return Number(kilograms[1]);
+
+  const grams = text.match(/^(\d+(?:\.\d+)?)\s*(g|gr|gramo|gramos)$/);
+  if (grams) return Number(grams[1]) / 1000;
+
+  const plainNumber = text.match(/^(\d+(?:\.\d+)?)$/);
+  if (plainNumber) return Number(plainNumber[1]) / 1000;
+
+  return null;
+}
+
+function measuredUnitPrice(basePrice, measureUnit) {
+  const price = Number(basePrice || 0);
+  const factor = measureUnitKgFactor(measureUnit);
+  return Number.isFinite(price) && factor && factor > 0 ? Number((price * factor).toFixed(2)) : price;
+}
+
+function handleMeasureUnitChange(select) {
+  syncCustomMeasureInput(select, true);
+  handleCustomMeasureChange(select);
+}
+
+function handleCustomMeasureChange(select) {
+  if (select === els.purchaseMeasureUnit) updatePurchaseTotal();
+  if (select === els.exitMeasureUnit) updateExitStockPreview();
 }
 
 function renderMeasureUnitOptions(select, isMeat, preferredValue) {
@@ -1618,7 +1664,7 @@ function fillBulkPurchaseDefaults() {
 function addBulkPurchaseItem() {
   const product = state.products.find((item) => item.id === els.bulkPurchaseProduct.value);
   const quantity = Number(els.bulkPurchaseQuantity.value);
-  const unitCost = Number(els.bulkPurchaseUnitCost.value);
+  const baseUnitCost = Number(els.bulkPurchaseUnitCost.value);
 
   if (!product) {
     showToast("Selecciona un producto para agregarlo.");
@@ -1630,7 +1676,7 @@ function addBulkPurchaseItem() {
     return;
   }
 
-  if (!Number.isFinite(unitCost) || unitCost < 0) {
+  if (!Number.isFinite(baseUnitCost) || baseUnitCost < 0) {
     showToast("Captura un costo unitario valido.");
     return;
   }
@@ -1640,6 +1686,12 @@ function addBulkPurchaseItem() {
     showToast("Captura la unidad de medida.");
     return;
   }
+  if (hasInvalidCustomMeatMeasure(els.bulkPurchaseMeasureUnit)) {
+    showToast("Escribe la otra cantidad en gramos o kilos, por ejemplo 750 g.");
+    return;
+  }
+
+  const unitCost = measuredUnitPrice(baseUnitCost, measureUnit);
   const existing = bulkPurchaseItems.find((item) => item.productId === product.id);
   if (existing) {
     if ((existing.measureUnit || "Pieza") !== measureUnit) {
@@ -1899,6 +1951,11 @@ function addBulkExitItem() {
     showToast("Captura la unidad de medida.");
     return;
   }
+  if (hasInvalidCustomMeatMeasure(els.bulkExitMeasureUnit)) {
+    showToast("Escribe la otra cantidad en gramos o kilos, por ejemplo 750 g.");
+    return;
+  }
+  const price = measuredUnitPrice(product.price, measureUnit);
   const nextQuantity = existing ? existing.quantity + quantity : quantity;
   if (nextQuantity > Number(product.stock)) {
     showToast("La lista supera el stock disponible de ese producto.");
@@ -1919,7 +1976,7 @@ function addBulkExitItem() {
       category: product.category,
       subcategory: product.subcategory || "",
       stock: Number(product.stock || 0),
-      price: Number(product.price || 0),
+      price,
       measureUnit,
       quantity
     });
@@ -2134,7 +2191,6 @@ function fillExitRegisterDefaults() {
   const product = state.products.find((item) => item.id === els.exitProduct.value);
   renderExitSupplierOptions(product?.supplier || els.exitSupplierType.value);
   updateExitMeasureOptions();
-  els.exitStockPreview.textContent = product ? formatUnits(product.stock) : "-";
   if (!els.exitRegisterQuantity.value) els.exitRegisterQuantity.value = product ? 1 : "";
   if (!els.exitRegisterNote.value) els.exitRegisterNote.value = exitTypeNotes[els.exitRegisterMovementType.value] || "Uso en cocina";
   if (product) {
@@ -2142,6 +2198,24 @@ function fillExitRegisterDefaults() {
   } else {
     els.exitRegisterQuantity.removeAttribute("max");
   }
+  updateExitStockPreview();
+}
+
+function updateExitStockPreview() {
+  const product = state.products.find((item) => item.id === els.exitProduct.value);
+  if (!product) {
+    els.exitStockPreview.textContent = "-";
+    return;
+  }
+
+  const quantity = Number(els.exitRegisterQuantity.value || 0);
+  const measureUnit = selectedMeasureUnitValue(els.exitMeasureUnit);
+  const unitValue = measuredUnitPrice(product.price, measureUnit);
+  const factor = measureUnitKgFactor(measureUnit);
+  const estimated = Number.isFinite(quantity) && quantity > 0 && factor
+    ? ` Â· valor estimado ${formatter.format(unitValue * quantity)}`
+    : "";
+  els.exitStockPreview.textContent = `${formatUnits(product.stock)}${estimated}`;
 }
 
 function resetExitRegisterForm() {
@@ -2316,6 +2390,10 @@ async function saveEditedPurchase(event) {
     showToast("Captura la unidad de medida.");
     return;
   }
+  if (hasInvalidCustomMeatMeasure(els.editPurchaseMeasureUnit)) {
+    showToast("Escribe la otra cantidad en gramos o kilos, por ejemplo 750 g.");
+    return;
+  }
   if (!Number.isFinite(purchase.unitCost) || purchase.unitCost < 0) {
     showToast("Captura un costo unitario valido.");
     return;
@@ -2393,11 +2471,16 @@ if (product?.category === "Carne") {
     showToast("Captura la unidad de medida.");
     return;
   }
+  if (hasInvalidCustomMeatMeasure(els.purchaseMeasureUnit)) {
+    showToast("Escribe la otra cantidad en gramos o kilos, por ejemplo 750 g.");
+    return;
+  }
 
   if (!Number.isFinite(purchase.unitCost) || purchase.unitCost < 0) {
     showToast("Captura un costo unitario valido.");
     return;
   }
+  purchase.unitCost = measuredUnitPrice(purchase.unitCost, purchase.measureUnit);
 
   const response = await window.Auth.apiFetch("/api/purchases", {
     method: "POST",
@@ -2726,6 +2809,10 @@ async function saveExitFromSection(event) {
     showToast("Captura la unidad de medida.");
     return;
   }
+  if (hasInvalidCustomMeatMeasure(els.exitMeasureUnit)) {
+    showToast("Escribe la otra cantidad en gramos o kilos, por ejemplo 750 g.");
+    return;
+  }
 
   if (quantity > Number(product.stock)) {
     showToast("No hay suficiente stock para registrar ese uso.");
@@ -2901,6 +2988,10 @@ async function saveEditedExit(event) {
   }
   if (!exit.measureUnit) {
     showToast("Captura la unidad de medida.");
+    return;
+  }
+  if (hasInvalidCustomMeatMeasure(els.editExitMeasureUnit)) {
+    showToast("Escribe la otra cantidad en gramos o kilos, por ejemplo 750 g.");
     return;
   }
 
@@ -3424,6 +3515,10 @@ async function saveDetailedExit(event) {
   }
   if (!measureUnit) {
     showToast("Captura la unidad de medida.");
+    return;
+  }
+  if (hasInvalidCustomMeatMeasure(els.exitModalMeasureUnit)) {
+    showToast("Escribe la otra cantidad en gramos o kilos, por ejemplo 750 g.");
     return;
   }
 

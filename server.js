@@ -326,6 +326,39 @@ function normalizePurchaseMeasureUnit(value) {
   return clean;
 }
 
+function measureUnitKgFactor(value) {
+  const text = String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(",", ".");
+
+  const fraction = text.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*kg$/);
+  if (fraction) {
+    const numerator = Number(fraction[1]);
+    const denominator = Number(fraction[2]);
+    return denominator > 0 ? numerator / denominator : null;
+  }
+
+  const kilograms = text.match(/^(\d+(?:\.\d+)?)\s*(kg|kilo|kilos|kilogramo|kilogramos)$/);
+  if (kilograms) return Number(kilograms[1]);
+
+  const grams = text.match(/^(\d+(?:\.\d+)?)\s*(g|gr|gramo|gramos)$/);
+  if (grams) return Number(grams[1]) / 1000;
+
+  const plainNumber = text.match(/^(\d+(?:\.\d+)?)$/);
+  if (plainNumber) return Number(plainNumber[1]) / 1000;
+
+  return null;
+}
+
+function measuredUnitValue(baseValue, measureUnit) {
+  const value = Number(baseValue || 0);
+  const factor = measureUnitKgFactor(measureUnit);
+  return Number.isFinite(value) && factor && factor > 0 ? Number((value * factor).toFixed(2)) : value;
+}
+
 function normalizeSupplierName(value, fallback = "Proveedor local") {
   const supplier = String(value || "").trim().replace(/\s+/g, " ").slice(0, 120);
   return supplier || fallback;
@@ -2806,9 +2839,9 @@ async function applyExitUse(client, exitUse, userId) {
     -exitUse.quantity,
     exitUse.note || defaultExitNote(exitUse.movementType),
     userId,
-    Number(product.price),
+    measuredUnitValue(product.price, exitUse.measureUnit),
     exitUse.movementType,
-    Number(product.cost),
+    measuredUnitValue(product.cost, exitUse.measureUnit),
     exitUse.supplierType,
     exitUse.measureUnit
   );
@@ -3289,8 +3322,8 @@ app.patch("/api/exits/:id", authRequired, adminRequired, async (req, res, next) 
     );
     const updatedMovement = await client.query(
       `UPDATE movements
-       SET quantity = $1, movement_type = $2, supplier_type = $3, measure_unit = $4, note = $5
-       WHERE id = $6
+       SET quantity = $1, movement_type = $2, supplier_type = $3, measure_unit = $4, note = $5, unit_price = $6, unit_cost = $7
+       WHERE id = $8
        RETURNING *`,
       [
         -exitUse.quantity,
@@ -3298,6 +3331,8 @@ app.patch("/api/exits/:id", authRequired, adminRequired, async (req, res, next) 
         exitUse.supplierType,
         exitUse.measureUnit,
         exitUse.note || defaultExitNote(exitUse.movementType),
+        measuredUnitValue(product.price, exitUse.measureUnit),
+        measuredUnitValue(product.cost, exitUse.measureUnit),
         movement.id
       ]
     );
