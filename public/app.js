@@ -771,14 +771,11 @@ function switchPanel(panel) {
 
   activePanel = panel;
 
-  const excelButton = document.getElementById("downloadCategoryExcel");
-
-if (excelButton) {
-    excelButton.style.display =
-        panel === "products" && isAdmin()
-            ? "inline-flex"
-            : "none";
-}
+  document.querySelectorAll("#downloadCategoryExcel, #mobileDownloadCategoryExcel").forEach((excelButton) => {
+    const showExcelButton = panel === "products" && isAdmin();
+    excelButton.hidden = !showExcelButton;
+    excelButton.style.display = showExcelButton ? "inline-flex" : "none";
+  });
  
 
 
