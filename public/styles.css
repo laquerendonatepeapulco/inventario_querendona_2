@@ -1307,7 +1307,7 @@ label {
 
   .main,
   .sidebar {
-    padding: 16px;
+    padding: 12px;
   }
 
   input,
@@ -1324,16 +1324,17 @@ label {
   .sidebar {
     border-right: 0;
     border-bottom: 1px solid var(--line);
+    gap: 10px;
   }
 
   .brand {
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
     text-align: center;
   }
 
   .brand img {
-    width: min(170px, 64vw);
+    width: min(132px, 48vw);
   }
 
   .brand strong,
@@ -1343,55 +1344,67 @@ label {
 
   .mobile-status-card {
     display: grid;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) minmax(112px, auto);
+    align-items: center;
+    gap: 8px;
     width: 100%;
-    margin-bottom: 14px;
-    padding: 12px;
+    margin-bottom: 6px;
+    padding: 10px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: color-mix(in srgb, var(--panel) 92%, transparent);
-    box-shadow: 0 12px 28px rgba(23, 32, 42, 0.08);
+    box-shadow: 0 10px 22px rgba(23, 32, 42, 0.08);
   }
 
   .mobile-status-heading {
     display: grid;
-    gap: 2px;
+    gap: 1px;
+    min-width: 0;
   }
 
   .mobile-status-heading span,
   .mobile-user-chip span {
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: 0.68rem;
     font-weight: 800;
     text-transform: uppercase;
   }
 
   .mobile-status-heading strong {
     color: var(--text);
-    font-size: 1.1rem;
+    font-size: 1rem;
     line-height: 1.1;
+    overflow-wrap: anywhere;
   }
 
   .mobile-user-chip {
     display: grid;
-    gap: 2px;
+    gap: 1px;
     min-height: 0;
-    padding: 10px;
+    padding: 8px 10px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--panel);
   }
 
+  .mobile-user-chip span,
+  .mobile-user-chip strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .mobile-user-chip strong {
     color: var(--text);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     line-height: 1.1;
   }
 
   .mobile-action-grid {
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr);
-    gap: 8px;
+    grid-column: 1 / -1;
+    grid-template-columns: 38px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
   }
 
   .mobile-action-grid .home-link {
@@ -1399,14 +1412,21 @@ label {
   }
 
   .mobile-action-grid .primary-button,
+  .mobile-action-grid .ghost-button,
   .mobile-action-grid .icon-button {
-    min-height: 42px;
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 0.92rem;
   }
 
   .mobile-action-grid .primary-button {
     display: grid;
     place-items: center;
     text-align: center;
+  }
+
+  .mobile-action-grid .icon-button {
+    width: 38px;
   }
 
   .topbar {
@@ -1419,7 +1439,7 @@ label {
 
   .mobile-nav-control {
     display: grid;
-    gap: 8px;
+    gap: 6px;
     width: 100%;
   }
 
@@ -1431,7 +1451,7 @@ label {
   }
 
   .mobile-nav-control select {
-    min-height: 48px;
+    min-height: 42px;
     padding: 0 14px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
