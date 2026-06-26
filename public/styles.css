@@ -1427,7 +1427,8 @@ label {
 
   .mobile-action-grid .mobile-excel-button {
     grid-column: 1 / -1;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     border-color: color-mix(in srgb, var(--primary) 34%, var(--line));
     background: color-mix(in srgb, var(--primary) 8%, var(--panel));
     color: var(--primary);
