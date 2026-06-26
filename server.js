@@ -2736,21 +2736,15 @@ async function applyPurchase(client, purchase, userId) {
       product.sku,
       product.category,
       product.subcategory || "",
-      stockQuantity,
-    purchase.supplier,
-    purchase.unitCost,
-    product.id,
+      purchase.supplier,
+      purchase.quantity,
+      purchase.measureUnit,
+      purchase.unitCost,
       totalCost,
       purchase.note,
       userId
     ]
   );
-
-  let stockQuantity = purchase.quantity;
-
-if (purchase.measureUnit === "Gramo") {
-    stockQuantity = purchase.quantity / 1000;
-}
 
   const updated = await client.query(
     `UPDATE products

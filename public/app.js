@@ -2474,41 +2474,22 @@ async function savePurchaseFromForm(event) {
 
   const formData = new FormData(els.purchaseForm);
 
-  let quantity = Number(formData.get("quantity"));
-const measureUnit = selectedMeasureUnitValue(els.purchaseMeasureUnit);
+  const productId = formData.get("productId");
+  const product = state.products.find((item) => item.id === productId);
+  const measureUnit = selectedMeasureUnitValue(els.purchaseMeasureUnit);
+  const isMeatPurchase = isMeatContext(els.purchaseCategory.value, els.purchaseSubcategory.value, product);
+  const quantity = isMeatPurchase ? 1 : Number(formData.get("quantity"));
 
-const product = state.products.find(
-    p => p.id === formData.get("productId")
-);
 
-const stockQuantity =
-    measureUnit === "Gramo"
-        ? quantity / 1000
-        : quantity;
-
-// Solo para productos de la categoría Carne
-if (product?.category === "Carne") {
-
-    if (measureUnit === "Gramos") {
-        quantity = quantity / 1000;
-    }
-
-    if (measureUnit === "Kilogramos") {
-        quantity = Number(quantity);
-    }
-
-}
   const purchase = {
-    productId: formData.get("productId"),
+    productId,
     measureUnit,
     supplier: formData.get("supplier").trim(),
 
     quantity,
-    stockQuantity,
-
     unitCost: Number(formData.get("unitCost")),
     note: formData.get("note").trim()
-};
+  };
 
   if (!purchase.productId || !purchase.supplier || !Number.isFinite(purchase.quantity) || purchase.quantity <= 0) {
     showToast("Selecciona producto, proveedor y cantidad válida.");
