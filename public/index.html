@@ -863,9 +863,11 @@
           </label>
           <label>
             Producto
-            <select id="bulkPurchaseProduct">
-              <option value="">Selecciona producto</option>
-            </select>
+            <div class="product-autocomplete">
+              <input id="bulkPurchaseProductSearch" type="search" placeholder="Escribe para buscar producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bulkPurchaseProductOptions" />
+              <input id="bulkPurchaseProduct" type="hidden" />
+              <div id="bulkPurchaseProductOptions" class="product-suggestions" role="listbox" hidden></div>
+            </div>
           </label>
           <label>
             Unidad de medida
@@ -967,9 +969,11 @@
           </label>
           <label>
             Producto
-            <select id="bulkExitProduct">
-              <option value="">Selecciona producto</option>
-            </select>
+            <div class="product-autocomplete">
+              <input id="bulkExitProductSearch" type="search" placeholder="Escribe para buscar producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="bulkExitProductOptions" />
+              <input id="bulkExitProduct" type="hidden" />
+              <div id="bulkExitProductOptions" class="product-suggestions" role="listbox" hidden></div>
+            </div>
           </label>
           <label>
             Unidad de medida
@@ -1325,6 +1329,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="auth.js?v=20260519-2"></script>
-    <script src="app.js?v=20260626-4"></script>
+    <script src="app.js?v=20260626-5"></script>
   </body>
 </html>

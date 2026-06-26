@@ -85,8 +85,11 @@ const MEAT_CUSTOM_MEASURE_VALUE = "__custom_meat_measure__";
 const PRODUCT_SUGGESTION_LIMIT = 8;
 const productSuggestionState = {
   purchase: { products: [], activeIndex: -1 },
-  exit: { products: [], activeIndex: -1 }
+  exit: { products: [], activeIndex: -1 },
+  bulkPurchase: { products: [], activeIndex: -1 },
+  bulkExit: { products: [], activeIndex: -1 }
 };
+const PRODUCT_AUTOCOMPLETE_KINDS = Object.keys(productSuggestionState);
 
 const els = {
   panels: document.querySelectorAll(".panel"),
@@ -175,6 +178,8 @@ const els = {
   bulkPurchaseCategory: document.querySelector("#bulkPurchaseCategory"),
   bulkPurchaseSubcategory: document.querySelector("#bulkPurchaseSubcategory"),
   bulkPurchaseProduct: document.querySelector("#bulkPurchaseProduct"),
+  bulkPurchaseProductSearch: document.querySelector("#bulkPurchaseProductSearch"),
+  bulkPurchaseProductOptions: document.querySelector("#bulkPurchaseProductOptions"),
   bulkPurchaseMeasureUnit: document.querySelector("#bulkPurchaseMeasureUnit"),
   bulkPurchaseQuantity: document.querySelector("#bulkPurchaseQuantity"),
   bulkPurchaseUnitCost: document.querySelector("#bulkPurchaseUnitCost"),
@@ -188,6 +193,8 @@ const els = {
   bulkExitCategory: document.querySelector("#bulkExitCategory"),
   bulkExitSubcategory: document.querySelector("#bulkExitSubcategory"),
   bulkExitProduct: document.querySelector("#bulkExitProduct"),
+  bulkExitProductSearch: document.querySelector("#bulkExitProductSearch"),
+  bulkExitProductOptions: document.querySelector("#bulkExitProductOptions"),
   bulkExitMeasureUnit: document.querySelector("#bulkExitMeasureUnit"),
   bulkExitQuantity: document.querySelector("#bulkExitQuantity"),
   bulkExitItems: document.querySelector("#bulkExitItems"),
@@ -414,6 +421,7 @@ function bindEvents() {
     els.bulkExitNote.value = exitTypeNotes[els.bulkExitMovementType.value] || "Uso en cocina";
   });
   els.bulkExitCategory.addEventListener("change", () => {
+    closeProductSuggestions("bulkExit");
     renderLinkedSubcategorySelect(
       els.bulkExitSubcategory,
       els.bulkExitCategory.value,
@@ -424,10 +432,17 @@ function bindEvents() {
     fillBulkExitDefaults();
   });
   els.bulkExitSubcategory.addEventListener("change", () => {
+    closeProductSuggestions("bulkExit");
     renderBulkExitProductOptions();
     fillBulkExitDefaults();
   });
-  els.bulkExitProduct.addEventListener("change", fillBulkExitDefaults);
+  els.bulkExitProductSearch.addEventListener("input", syncBulkExitProductFromSearch);
+  els.bulkExitProductSearch.addEventListener("change", syncBulkExitProductFromSearch);
+  els.bulkExitProductSearch.addEventListener("focus", () => renderProductSuggestions("bulkExit"));
+  els.bulkExitProductSearch.addEventListener("blur", () => closeProductSuggestionsSoon("bulkExit"));
+  els.bulkExitProductSearch.addEventListener("keydown", (event) => handleProductSearchKeydown("bulkExit", event));
+  els.bulkExitProductOptions.addEventListener("mousedown", (event) => event.preventDefault());
+  els.bulkExitProductOptions.addEventListener("click", (event) => handleProductSuggestionClick("bulkExit", event));
   els.bulkExitItems.addEventListener("change", handleBulkExitItems);
   els.bulkExitItems.addEventListener("click", handleBulkExitItems);
   els.purchaseCategory.addEventListener("change", () => {
@@ -449,16 +464,24 @@ function bindEvents() {
   els.purchaseProductOptions.addEventListener("mousedown", (event) => event.preventDefault());
   els.purchaseProductOptions.addEventListener("click", (event) => handleProductSuggestionClick("purchase", event));
   els.bulkPurchaseCategory.addEventListener("change", () => {
+    closeProductSuggestions("bulkPurchase");
     renderLinkedSubcategorySelect(els.bulkPurchaseSubcategory, els.bulkPurchaseCategory.value);
     renderBulkPurchaseProductOptions();
     renderBulkPurchaseSupplierOptions();
     fillBulkPurchaseDefaults();
   });
   els.bulkPurchaseSubcategory.addEventListener("change", () => {
+    closeProductSuggestions("bulkPurchase");
     renderBulkPurchaseProductOptions();
     fillBulkPurchaseDefaults();
   });
-  els.bulkPurchaseProduct.addEventListener("change", fillBulkPurchaseDefaults);
+  els.bulkPurchaseProductSearch.addEventListener("input", syncBulkPurchaseProductFromSearch);
+  els.bulkPurchaseProductSearch.addEventListener("change", syncBulkPurchaseProductFromSearch);
+  els.bulkPurchaseProductSearch.addEventListener("focus", () => renderProductSuggestions("bulkPurchase"));
+  els.bulkPurchaseProductSearch.addEventListener("blur", () => closeProductSuggestionsSoon("bulkPurchase"));
+  els.bulkPurchaseProductSearch.addEventListener("keydown", (event) => handleProductSearchKeydown("bulkPurchase", event));
+  els.bulkPurchaseProductOptions.addEventListener("mousedown", (event) => event.preventDefault());
+  els.bulkPurchaseProductOptions.addEventListener("click", (event) => handleProductSuggestionClick("bulkPurchase", event));
   els.bulkPurchaseItems.addEventListener("change", handleBulkPurchaseItems);
   els.bulkPurchaseItems.addEventListener("click", handleBulkPurchaseItems);
   els.purchaseReportCategory.addEventListener("change", () => {
@@ -503,8 +526,7 @@ function bindEvents() {
   });
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".product-autocomplete")) {
-      closeProductSuggestions("purchase");
-      closeProductSuggestions("exit");
+      PRODUCT_AUTOCOMPLETE_KINDS.forEach(closeProductSuggestions);
     }
   });
 }
@@ -676,6 +698,7 @@ if (!isAdmin()) {
     "#bulkPurchaseSupplier",
     "#bulkPurchaseCategory",
     "#bulkPurchaseProduct",
+    "#bulkPurchaseProductSearch",
     "#bulkPurchaseMeasureUnit",
     "#bulkPurchaseQuantity",
     "#bulkPurchaseUnitCost",
@@ -693,6 +716,7 @@ if (!isAdmin()) {
     "#bulkExitSupplierType",
     "#bulkExitCategory",
     "#bulkExitProduct",
+    "#bulkExitProductSearch",
     "#bulkExitMeasureUnit",
     "#bulkExitQuantity",
     "#bulkExitNote",
@@ -1288,6 +1312,16 @@ function syncPurchaseProductFromSearch() {
   fillPurchaseDefaults();
 }
 
+function syncBulkPurchaseProductFromSearch() {
+  syncProductSearch("bulkPurchase");
+  fillBulkPurchaseDefaults();
+}
+
+function syncBulkExitProductFromSearch() {
+  syncProductSearch("bulkExit");
+  fillBulkExitDefaults();
+}
+
 function productAutocompleteConfig(kind) {
   if (kind === "purchase") {
     return {
@@ -1297,6 +1331,28 @@ function productAutocompleteConfig(kind) {
       label: purchaseProductOptionLabel,
       getProducts: getPurchaseAutocompleteProducts,
       afterSelect: fillPurchaseDefaults
+    };
+  }
+
+  if (kind === "bulkPurchase") {
+    return {
+      input: els.bulkPurchaseProductSearch,
+      hidden: els.bulkPurchaseProduct,
+      list: els.bulkPurchaseProductOptions,
+      label: purchaseProductOptionLabel,
+      getProducts: getBulkPurchaseAutocompleteProducts,
+      afterSelect: fillBulkPurchaseDefaults
+    };
+  }
+
+  if (kind === "bulkExit") {
+    return {
+      input: els.bulkExitProductSearch,
+      hidden: els.bulkExitProduct,
+      list: els.bulkExitProductOptions,
+      label: exitProductOptionLabel,
+      getProducts: getBulkExitAutocompleteProducts,
+      afterSelect: fillBulkExitDefaults
     };
   }
 
@@ -1369,6 +1425,25 @@ function getPurchaseAutocompleteProducts(query = "") {
 function getExitAutocompleteProducts(query = "") {
   const selectedCategory = els.exitCategory.value;
   const selectedSubcategory = els.exitSubcategory.value || "all";
+  const products = state.products
+    .filter((product) => Number(product.stock) > 0)
+    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
+    .filter((product) => productMatchesSearch(product, query));
+  return sortAutocompleteProducts(products, query);
+}
+
+function getBulkPurchaseAutocompleteProducts(query = "") {
+  const selectedCategory = els.bulkPurchaseCategory.value;
+  const selectedSubcategory = els.bulkPurchaseSubcategory.value || "all";
+  const products = state.products
+    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
+    .filter((product) => productMatchesSearch(product, query));
+  return sortAutocompleteProducts(products, query);
+}
+
+function getBulkExitAutocompleteProducts(query = "") {
+  const selectedCategory = els.bulkExitCategory.value;
+  const selectedSubcategory = els.bulkExitSubcategory.value || "all";
   const products = state.products
     .filter((product) => Number(product.stock) > 0)
     .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
@@ -1882,6 +1957,7 @@ function openBulkPurchaseModal() {
 }
 
 function closeBulkPurchaseModal() {
+  closeProductSuggestions("bulkPurchase");
   els.bulkPurchaseModal.classList.remove("active");
   els.bulkPurchaseModal.setAttribute("aria-hidden", "true");
 }
@@ -1909,14 +1985,13 @@ function renderBulkPurchaseProductOptions() {
     .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
-  els.bulkPurchaseProduct.innerHTML = `<option value="">Selecciona producto</option>`;
-  products.forEach((product) => {
-    const option = document.createElement("option");
-    option.value = product.id;
-    option.textContent = `${product.name} (${formatUnits(product.stock)})`;
-    els.bulkPurchaseProduct.append(option);
-  });
-  els.bulkPurchaseProduct.value = products.some((product) => product.id === selected) ? selected : "";
+  if (products.some((product) => product.id === selected)) {
+    const product = products.find((item) => item.id === selected);
+    els.bulkPurchaseProductSearch.value = purchaseProductOptionLabel(product);
+  } else {
+    els.bulkPurchaseProduct.value = "";
+    els.bulkPurchaseProductSearch.value = "";
+  }
   renderBulkPurchaseSupplierOptions();
   updateBulkPurchaseMeasureOptions();
 }
@@ -1926,6 +2001,7 @@ function fillBulkPurchaseDefaults() {
   if (!product) {
     renderBulkPurchaseSupplierOptions();
     updateBulkPurchaseMeasureOptions();
+    els.bulkPurchaseUnitCost.value = "";
     return;
   }
   renderBulkPurchaseSupplierOptions(product.supplier || els.bulkPurchaseSupplier.value);
@@ -1988,8 +2064,10 @@ function addBulkPurchaseItem() {
   }
 
   els.bulkPurchaseProduct.value = "";
+  els.bulkPurchaseProductSearch.value = "";
   els.bulkPurchaseQuantity.value = "";
   els.bulkPurchaseUnitCost.value = "";
+  closeProductSuggestions("bulkPurchase");
   updateBulkPurchaseMeasureOptions();
   renderBulkPurchaseItems();
   showToast("Producto agregado a la entrada grande.");
@@ -2145,6 +2223,7 @@ function openBulkExitModal() {
 }
 
 function closeBulkExitModal() {
+  closeProductSuggestions("bulkExit");
   els.bulkExitModal.classList.remove("active");
   els.bulkExitModal.setAttribute("aria-hidden", "true");
 }
@@ -2174,14 +2253,13 @@ function renderBulkExitProductOptions() {
     .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
-  els.bulkExitProduct.innerHTML = `<option value="">Selecciona producto</option>`;
-  products.forEach((product) => {
-    const option = document.createElement("option");
-    option.value = product.id;
-    option.textContent = `${product.name} (${formatUnits(product.stock)})`;
-    els.bulkExitProduct.append(option);
-  });
-  els.bulkExitProduct.value = products.some((product) => product.id === selected) ? selected : "";
+  if (products.some((product) => product.id === selected)) {
+    const product = products.find((item) => item.id === selected);
+    els.bulkExitProductSearch.value = exitProductOptionLabel(product);
+  } else {
+    els.bulkExitProduct.value = "";
+    els.bulkExitProductSearch.value = "";
+  }
   renderBulkExitSupplierOptions();
   updateBulkExitMeasureOptions();
 }
@@ -2257,8 +2335,10 @@ function addBulkExitItem() {
   }
 
   els.bulkExitProduct.value = "";
+  els.bulkExitProductSearch.value = "";
   els.bulkExitQuantity.value = "";
   els.bulkExitQuantity.removeAttribute("max");
+  closeProductSuggestions("bulkExit");
   updateBulkExitMeasureOptions();
   renderBulkExitItems();
   showToast("Producto agregado a la salida grande.");
