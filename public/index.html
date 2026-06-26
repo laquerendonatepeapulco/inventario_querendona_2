@@ -260,9 +260,11 @@
               </label>
               <label>
                 Producto
-                <input id="purchaseProductSearch" name="productSearch" type="search" list="purchaseProductOptions" placeholder="Escribe para buscar producto" autocomplete="off" required />
-                <input id="purchaseProduct" name="productId" type="hidden" />
-                <datalist id="purchaseProductOptions"></datalist>
+                <div class="product-autocomplete">
+                  <input id="purchaseProductSearch" name="productSearch" type="search" placeholder="Escribe para buscar producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="purchaseProductOptions" required />
+                  <input id="purchaseProduct" name="productId" type="hidden" />
+                  <div id="purchaseProductOptions" class="product-suggestions" role="listbox" hidden></div>
+                </div>
               </label>
               <label>
                 Unidad de medida
@@ -505,9 +507,11 @@
               </label>
               <label>
                 Producto
-                <input id="exitProductSearch" name="productSearch" type="search" list="exitProductOptions" placeholder="Escribe para buscar producto" autocomplete="off" required />
-                <input id="exitProduct" name="productId" type="hidden" />
-                <datalist id="exitProductOptions"></datalist>
+                <div class="product-autocomplete">
+                  <input id="exitProductSearch" name="productSearch" type="search" placeholder="Escribe para buscar producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="exitProductOptions" required />
+                  <input id="exitProduct" name="productId" type="hidden" />
+                  <div id="exitProductOptions" class="product-suggestions" role="listbox" hidden></div>
+                </div>
               </label>
               <label>
                 Unidad de medida

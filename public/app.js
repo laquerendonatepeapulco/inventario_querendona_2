@@ -82,6 +82,11 @@ const STANDARD_MEASURE_UNITS = [
 ];
 const MEAT_MEASURE_UNITS = ["1 kg", "1/2 kg", "1/4 kg"];
 const MEAT_CUSTOM_MEASURE_VALUE = "__custom_meat_measure__";
+const PRODUCT_SUGGESTION_LIMIT = 8;
+const productSuggestionState = {
+  purchase: { products: [], activeIndex: -1 },
+  exit: { products: [], activeIndex: -1 }
+};
 
 const els = {
   panels: document.querySelectorAll(".panel"),
@@ -400,6 +405,11 @@ function bindEvents() {
   });
   els.exitProductSearch.addEventListener("input", syncExitProductFromSearch);
   els.exitProductSearch.addEventListener("change", syncExitProductFromSearch);
+  els.exitProductSearch.addEventListener("focus", () => renderProductSuggestions("exit"));
+  els.exitProductSearch.addEventListener("blur", () => closeProductSuggestionsSoon("exit"));
+  els.exitProductSearch.addEventListener("keydown", (event) => handleProductSearchKeydown("exit", event));
+  els.exitProductOptions.addEventListener("mousedown", (event) => event.preventDefault());
+  els.exitProductOptions.addEventListener("click", (event) => handleProductSuggestionClick("exit", event));
   els.bulkExitMovementType.addEventListener("change", () => {
     els.bulkExitNote.value = exitTypeNotes[els.bulkExitMovementType.value] || "Uso en cocina";
   });
@@ -433,6 +443,11 @@ function bindEvents() {
   els.editPurchaseForm.addEventListener("submit", saveEditedPurchase);
   els.purchaseProductSearch.addEventListener("input", syncPurchaseProductFromSearch);
   els.purchaseProductSearch.addEventListener("change", syncPurchaseProductFromSearch);
+  els.purchaseProductSearch.addEventListener("focus", () => renderProductSuggestions("purchase"));
+  els.purchaseProductSearch.addEventListener("blur", () => closeProductSuggestionsSoon("purchase"));
+  els.purchaseProductSearch.addEventListener("keydown", (event) => handleProductSearchKeydown("purchase", event));
+  els.purchaseProductOptions.addEventListener("mousedown", (event) => event.preventDefault());
+  els.purchaseProductOptions.addEventListener("click", (event) => handleProductSuggestionClick("purchase", event));
   els.bulkPurchaseCategory.addEventListener("change", () => {
     renderLinkedSubcategorySelect(els.bulkPurchaseSubcategory, els.bulkPurchaseCategory.value);
     renderBulkPurchaseProductOptions();
@@ -485,6 +500,12 @@ function bindEvents() {
   });
   els.editExitModal.addEventListener("click", (event) => {
     if (event.target === els.editExitModal) closeEditExitModal();
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".product-autocomplete")) {
+      closeProductSuggestions("purchase");
+      closeProductSuggestions("exit");
+    }
   });
 }
 
@@ -1248,14 +1269,6 @@ function renderPurchaseOptions() {
     .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
-  els.purchaseProductOptions.innerHTML = "";
-  products.forEach((product) => {
-    const option = document.createElement("option");
-    option.value = purchaseProductOptionLabel(product);
-    option.dataset.id = product.id;
-    els.purchaseProductOptions.append(option);
-  });
-
   if (products.some((product) => product.id === selected)) {
     const product = products.find((item) => item.id === selected);
     els.purchaseProductSearch.value = purchaseProductOptionLabel(product);
@@ -1274,16 +1287,232 @@ function purchaseProductOptionLabel(product) {
 }
 
 function syncPurchaseProductFromSearch() {
-  const query = els.purchaseProductSearch.value.trim().toLowerCase();
+  syncProductSearch("purchase");
+  fillPurchaseDefaults();
+}
+
+function productAutocompleteConfig(kind) {
+  if (kind === "purchase") {
+    return {
+      input: els.purchaseProductSearch,
+      hidden: els.purchaseProduct,
+      list: els.purchaseProductOptions,
+      label: purchaseProductOptionLabel,
+      getProducts: getPurchaseAutocompleteProducts,
+      afterSelect: fillPurchaseDefaults
+    };
+  }
+
+  return {
+    input: els.exitProductSearch,
+    hidden: els.exitProduct,
+    list: els.exitProductOptions,
+    label: exitProductOptionLabel,
+    getProducts: getExitAutocompleteProducts,
+    afterSelect: fillExitRegisterDefaults
+  };
+}
+
+function normalizeProductSearch(value) {
+  return normalizeSearch(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function productAutocompleteText(product) {
+  return normalizeProductSearch([
+    product.name,
+    product.sku,
+    product.description,
+    product.category,
+    product.subcategory,
+    product.supplier
+  ].join(" "));
+}
+
+function productMatchesSearch(product, query) {
+  const terms = normalizeProductSearch(query).split(/\s+/).filter(Boolean);
+  if (!terms.length) return true;
+  const text = productAutocompleteText(product);
+  return terms.every((term) => text.includes(term));
+}
+
+function productSearchRank(product, query) {
+  const text = normalizeProductSearch(query);
+  if (!text) return 0;
+
+  const name = normalizeProductSearch(product.name);
+  const sku = normalizeProductSearch(product.sku);
+  const category = normalizeProductSearch(formatCategoryPath(product));
+  if (name.startsWith(text)) return 0;
+  if (sku.startsWith(text)) return 1;
+  if (name.includes(text)) return 2;
+  if (sku.includes(text)) return 3;
+  if (category.includes(text)) return 4;
+  return 5;
+}
+
+function sortAutocompleteProducts(products, query) {
+  return products.sort((a, b) => {
+    const rank = productSearchRank(a, query) - productSearchRank(b, query);
+    return rank || a.name.localeCompare(b.name, "es");
+  });
+}
+
+function getPurchaseAutocompleteProducts(query = "") {
   const selectedCategory = els.purchaseCategory.value;
   const selectedSubcategory = els.purchaseSubcategory.value || "all";
-  const exactProduct = state.products.find((product) => (
-    matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory)
-      && purchaseProductOptionLabel(product).toLowerCase() === query
-  ));
+  const products = state.products
+    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
+    .filter((product) => productMatchesSearch(product, query));
+  return sortAutocompleteProducts(products, query);
+}
 
-  els.purchaseProduct.value = exactProduct?.id || "";
-  fillPurchaseDefaults();
+function getExitAutocompleteProducts(query = "") {
+  const selectedCategory = els.exitCategory.value;
+  const selectedSubcategory = els.exitSubcategory.value || "all";
+  const products = state.products
+    .filter((product) => Number(product.stock) > 0)
+    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
+    .filter((product) => productMatchesSearch(product, query));
+  return sortAutocompleteProducts(products, query);
+}
+
+function findExactAutocompleteProduct(kind) {
+  const config = productAutocompleteConfig(kind);
+  const query = normalizeProductSearch(config.input.value);
+  if (!query) return null;
+
+  return config.getProducts("").find((product) => (
+    normalizeProductSearch(config.label(product)) === query
+      || normalizeProductSearch(product.name) === query
+      || normalizeProductSearch(product.sku) === query
+  )) || null;
+}
+
+function syncProductSearch(kind) {
+  const config = productAutocompleteConfig(kind);
+  const exactProduct = findExactAutocompleteProduct(kind);
+  config.hidden.value = exactProduct?.id || "";
+  renderProductSuggestions(kind);
+}
+
+function renderProductSuggestions(kind) {
+  const config = productAutocompleteConfig(kind);
+  if (!config.input || !config.list) return;
+
+  const query = config.input.value.trim();
+  const products = config.getProducts(query).slice(0, PRODUCT_SUGGESTION_LIMIT);
+  const suggestionState = productSuggestionState[kind];
+  suggestionState.products = products;
+  suggestionState.activeIndex = -1;
+  config.input.setAttribute("aria-expanded", "true");
+  config.list.innerHTML = "";
+
+  if (!products.length) {
+    config.list.innerHTML = `<div class="product-suggestion-empty">Sin productos encontrados</div>`;
+    config.list.hidden = false;
+    return;
+  }
+
+  products.forEach((product, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "product-suggestion";
+    button.dataset.index = index;
+    button.id = `${kind}ProductSuggestion${index}`;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", "false");
+    button.innerHTML = `
+      <span class="product-suggestion-name">${escapeHtml(product.name)}</span>
+      <span class="product-suggestion-meta">${escapeHtml(product.sku)} &middot; ${escapeHtml(formatCategoryPath(product))} &middot; ${escapeHtml(formatUnits(product.stock))}</span>
+    `;
+    config.list.append(button);
+  });
+  config.list.hidden = false;
+}
+
+function closeProductSuggestions(kind) {
+  const config = productAutocompleteConfig(kind);
+  if (!config.input || !config.list) return;
+  config.list.hidden = true;
+  config.input.setAttribute("aria-expanded", "false");
+  config.input.removeAttribute("aria-activedescendant");
+  productSuggestionState[kind].activeIndex = -1;
+}
+
+function closeProductSuggestionsSoon(kind) {
+  setTimeout(() => {
+    if (!document.activeElement?.closest(".product-autocomplete")) {
+      closeProductSuggestions(kind);
+    }
+  }, 0);
+}
+
+function setProductSuggestionActive(kind, index) {
+  const config = productAutocompleteConfig(kind);
+  const suggestionState = productSuggestionState[kind];
+  const buttons = [...config.list.querySelectorAll(".product-suggestion")];
+  if (!buttons.length) return;
+
+  const nextIndex = (index + buttons.length) % buttons.length;
+  suggestionState.activeIndex = nextIndex;
+  buttons.forEach((button, buttonIndex) => {
+    const isActive = buttonIndex === nextIndex;
+    button.setAttribute("aria-selected", String(isActive));
+    if (isActive) {
+      config.input.setAttribute("aria-activedescendant", button.id);
+      button.scrollIntoView({ block: "nearest" });
+    }
+  });
+}
+
+function selectProductSuggestion(kind, index) {
+  const config = productAutocompleteConfig(kind);
+  const product = productSuggestionState[kind].products[index];
+  if (!product) return;
+
+  config.hidden.value = product.id;
+  config.input.value = config.label(product);
+  closeProductSuggestions(kind);
+  config.afterSelect(product);
+}
+
+function handleProductSuggestionClick(kind, event) {
+  const button = event.target.closest(".product-suggestion");
+  if (!button) return;
+  selectProductSuggestion(kind, Number(button.dataset.index));
+}
+
+function handleProductSearchKeydown(kind, event) {
+  const config = productAutocompleteConfig(kind);
+  const suggestionState = productSuggestionState[kind];
+  const isOpen = config.list && !config.list.hidden;
+
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    if (!isOpen) renderProductSuggestions(kind);
+    setProductSuggestionActive(kind, suggestionState.activeIndex + 1);
+    return;
+  }
+
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    if (!isOpen) renderProductSuggestions(kind);
+    setProductSuggestionActive(kind, suggestionState.activeIndex - 1);
+    return;
+  }
+
+  if (event.key === "Enter" && isOpen && suggestionState.products.length) {
+    event.preventDefault();
+    selectProductSuggestion(kind, suggestionState.activeIndex >= 0 ? suggestionState.activeIndex : 0);
+    return;
+  }
+
+  if (event.key === "Escape") {
+    closeProductSuggestions(kind);
+  }
 }
 
 function renderPurchaseCategoryOptions() {
@@ -2179,14 +2408,6 @@ function renderExitOptions() {
     .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
-  els.exitProductOptions.innerHTML = "";
-  products.forEach((product) => {
-    const option = document.createElement("option");
-    option.value = exitProductOptionLabel(product);
-    option.dataset.id = product.id;
-    els.exitProductOptions.append(option);
-  });
-
   if (products.some((product) => product.id === selected)) {
     const product = products.find((item) => item.id === selected);
     els.exitProductSearch.value = exitProductOptionLabel(product);
@@ -2218,21 +2439,7 @@ function exitProductOptionLabel(product) {
 }
 
 function syncExitProductFromSearch() {
-  const query = els.exitProductSearch.value.trim().toLowerCase();
-  const selectedCategory = els.exitCategory.value;
-  const selectedSubcategory = els.exitSubcategory.value || "all";
-  const exactProduct = state.products.find((product) => (
-    Number(product.stock) > 0
-      && matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory)
-      && exitProductOptionLabel(product).toLowerCase() === query
-  ));
-
-  if (exactProduct) {
-    els.exitProduct.value = exactProduct.id;
-  } else {
-    els.exitProduct.value = "";
-  }
-
+  syncProductSearch("exit");
   fillExitRegisterDefaults();
 }
 
@@ -2271,6 +2478,7 @@ function resetExitRegisterForm() {
   els.exitRegisterForm.reset();
   els.exitCategory.value = "all";
   els.exitSubcategory.value = "all";
+  closeProductSuggestions("exit");
   renderExitOptions();
   fillExitRegisterDefaults();
 }
@@ -2279,6 +2487,7 @@ function resetPurchaseForm() {
   els.purchaseForm.reset();
   els.purchaseCategory.value = "all";
   els.purchaseSubcategory.value = "all";
+  closeProductSuggestions("purchase");
   renderPurchaseOptions();
   updatePurchaseTotal();
 }
