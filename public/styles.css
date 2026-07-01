@@ -1328,18 +1328,39 @@ label {
   }
 
   .brand {
+    flex-direction: row;
     align-items: center;
-    margin-bottom: 4px;
-    text-align: center;
+    justify-content: flex-start;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 8px 4px;
+    text-align: left;
   }
 
   .brand img {
-    width: min(132px, 48vw);
+    width: min(132px, 36vw);
   }
 
-  .brand strong,
+  .brand > div:first-child {
+    flex: 0 0 auto;
+  }
+
+  .brand > div:last-child {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .brand strong {
+    color: var(--text);
+    font-size: 0.98rem;
+    line-height: 1.12;
+  }
+
   .brand small {
-    display: none;
+    font-size: 0.86rem;
+    line-height: 1.1;
   }
 
   .mobile-status-card {
