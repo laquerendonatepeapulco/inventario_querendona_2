@@ -1787,7 +1787,7 @@ label {
 
   .expense-table {
     display: table;
-    min-width: 760px;
+    min-width: 640px;
   }
 
   .expense-table thead {
@@ -1809,7 +1809,32 @@ label {
   .expense-table td {
     display: table-cell;
     min-height: 0;
-    padding: 12px;
+    padding: 10px 8px;
+    font-size: 0.88rem;
+  }
+
+  .expense-table .expense-concept-column {
+    width: 142px;
+    min-width: 142px;
+    max-width: 142px;
+    padding-left: 10px;
+    padding-right: 8px;
+  }
+
+  .expense-table .expense-concept-column strong {
+    font-size: 0.88rem;
+    line-height: 1.15;
+  }
+
+  .expense-table .expense-concept-column small {
+    margin-top: 2px;
+    font-size: 0.66rem;
+    line-height: 1.15;
+  }
+
+  .expense-table th:not(.expense-concept-column),
+  .expense-table td:not(.expense-concept-column) {
+    min-width: 96px;
   }
 
   .expense-table td::before {
