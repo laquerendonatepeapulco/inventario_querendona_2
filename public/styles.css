@@ -998,6 +998,92 @@ tbody tr:hover {
   background: rgba(24, 128, 90, 0.12);
 }
 
+.expense-mobile-list {
+  display: none;
+}
+
+.expense-mobile-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.expense-mobile-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.expense-mobile-card-head strong,
+.expense-mobile-card-head small {
+  display: block;
+}
+
+.expense-mobile-card-head strong {
+  overflow-wrap: anywhere;
+}
+
+.expense-mobile-card-head small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.expense-mobile-card-head span {
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 900;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.expense-mobile-days {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.expense-day-chip {
+  display: grid;
+  gap: 3px;
+  min-width: 116px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-strong);
+}
+
+.expense-day-chip small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.expense-day-chip strong {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.expense-day-chip.muted {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.expense-mobile-total-card {
+  background: rgba(24, 128, 90, 0.12);
+}
+
 .setting-actions {
   justify-content: flex-start;
   flex-wrap: wrap;
@@ -1779,46 +1865,25 @@ label {
   }
 
   .expense-table-wrap {
-    overflow-x: auto;
-    border: 1px solid var(--line);
-    background: var(--panel);
-    box-shadow: var(--shadow);
+    display: none;
   }
 
-  .expense-table {
-    display: table;
-    min-width: 760px;
+  .expense-mobile-list {
+    display: grid;
+    gap: 12px;
   }
 
-  .expense-table thead {
-    display: table-header-group;
-  }
-
-  .expense-table tbody {
-    display: table-row-group;
-  }
-
-  .expense-table tbody tr {
-    display: table-row;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .expense-table th,
-  .expense-table td {
-    display: table-cell;
-    min-height: 0;
+  .expense-mobile-card {
     padding: 12px;
   }
 
-  .expense-table td::before {
-    content: none;
+  .expense-mobile-card-head {
+    grid-template-columns: 1fr;
   }
 
-  .expense-table td[colspan] {
-    display: table-cell;
-    padding: 18px;
+  .expense-mobile-card-head span {
+    justify-self: start;
+    text-align: left;
   }
 }
 

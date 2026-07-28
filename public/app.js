@@ -153,6 +153,7 @@ const els = {
   expenseTopDayLabel: document.querySelector("#expenseTopDayLabel"),
   expenseControlHead: document.querySelector("#expenseControlHead"),
   expenseControlRows: document.querySelector("#expenseControlRows"),
+  expenseMobileList: document.querySelector("#expenseMobileList"),
   purchaseForm: document.querySelector("#purchaseForm"),
   purchaseCategory: document.querySelector("#purchaseCategory"),
   purchaseSubcategory: document.querySelector("#purchaseSubcategory"),
@@ -3588,8 +3589,10 @@ function renderExpenseControlReport() {
 
   els.expenseControlHead.innerHTML = "";
   els.expenseControlRows.innerHTML = "";
+  if (els.expenseMobileList) els.expenseMobileList.innerHTML = "";
 
   if (!isAdmin()) {
+    renderExpenseMobileEmpty("Solo administradores pueden consultar el control de gastos.");
     els.expenseControlRows.innerHTML = `
       <tr>
         <td colspan="${totalColumns}">
@@ -3600,6 +3603,7 @@ function renderExpenseControlReport() {
   }
 
   if (!report) {
+    renderExpenseMobileEmpty("Genera el control de gastos para ver compras por concepto y dia.");
     els.expenseControlRows.innerHTML = `
       <tr>
         <td colspan="${totalColumns}">
@@ -3617,6 +3621,7 @@ function renderExpenseControlReport() {
     </tr>`;
 
   if (!report.rows.length) {
+    renderExpenseMobileEmpty("No hay compras registradas en este rango de fechas.");
     els.expenseControlRows.innerHTML = `
       <tr>
         <td colspan="${totalColumns}">
@@ -3653,6 +3658,64 @@ function renderExpenseControlReport() {
     <td class="expense-total-cell" data-label="Total">${formatter.format(summary.totalCost || 0)}</td>
   `;
   els.expenseControlRows.append(totalRow);
+  renderExpenseMobileCards(report);
+}
+
+function renderExpenseMobileEmpty(message) {
+  if (!els.expenseMobileList) return;
+  els.expenseMobileList.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+}
+
+function renderExpenseDayChips(dates, values) {
+  const activeDates = dates.filter((date) => Number(values?.[date] || 0) > 0);
+  if (!activeDates.length) {
+    return `<span class="expense-day-chip muted">Sin gastos en los dias visibles</span>`;
+  }
+
+  return activeDates.map((date) => `
+    <span class="expense-day-chip">
+      <small>${escapeHtml(formatShortReportDateLabel(date))}</small>
+      <strong>${formatter.format(values[date] || 0)}</strong>
+    </span>
+  `).join("");
+}
+
+function renderExpenseMobileCards(report) {
+  if (!els.expenseMobileList) return;
+  const dates = report.dates || [];
+  const rows = report.rows || [];
+
+  const cards = rows.map((item) => `
+    <article class="expense-mobile-card">
+      <div class="expense-mobile-card-head">
+        <div>
+          <strong>${escapeHtml(item.concept)}</strong>
+          <small>${item.entries || 0} entradas</small>
+        </div>
+        <span>${formatter.format(item.total || 0)}</span>
+      </div>
+      <div class="expense-mobile-days">
+        ${renderExpenseDayChips(dates, item.days || {})}
+      </div>
+    </article>
+  `).join("");
+
+  const totalCard = `
+    <article class="expense-mobile-card expense-mobile-total-card">
+      <div class="expense-mobile-card-head">
+        <div>
+          <strong>Total del periodo</strong>
+          <small>${report.summary?.totalEntries || 0} entradas</small>
+        </div>
+        <span>${formatter.format(report.summary?.totalCost || 0)}</span>
+      </div>
+      <div class="expense-mobile-days">
+        ${renderExpenseDayChips(dates, report.summary?.dateTotals || {})}
+      </div>
+    </article>
+  `;
+
+  els.expenseMobileList.innerHTML = `${cards}${totalCard}`;
 }
 
 async function downloadExpenseControlReport() {
@@ -4249,6 +4312,11 @@ function formatDateInput(value) {
 function formatReportDateLabel(value) {
   const [year, month, day] = String(value || "").split("-");
   return year && month && day ? `${day}/${month}/${year}` : String(value || "");
+}
+
+function formatShortReportDateLabel(value) {
+  const [, month, day] = String(value || "").split("-");
+  return month && day ? `${day}/${month}` : String(value || "");
 }
 
 function formatUnits(value) {
