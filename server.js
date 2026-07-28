@@ -1277,9 +1277,38 @@ function parsePurchaseFilters(req) {
   };
 }
 
+function parseExpenseControlFilters(req) {
+  const category = String(req.query.category || "").trim();
+  return {
+    category: category && category !== "all" ? category : ""
+  };
+}
+
 function reportCategoryPath(item) {
   if (item.subcategory) return `${item.category || "Sin categoria"} / ${item.subcategory}`;
   return item.category || "Sin categoria";
+}
+
+function reportDateKeys(from, to) {
+  const dates = [];
+  const current = new Date(`${from}T00:00:00.000Z`);
+  const end = new Date(`${to}T00:00:00.000Z`);
+
+  while (current <= end) {
+    dates.push(current.toISOString().slice(0, 10));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
+  return dates;
+}
+
+function reportDateLabel(dateKey) {
+  const [year, month, day] = String(dateKey || "").split("-");
+  return year && month && day ? `${day}/${month}/${year}` : dateKey;
+}
+
+function roundedMoney(value) {
+  return Number(Number(value || 0).toFixed(2));
 }
 
 function incomeReportDto(row) {
@@ -1814,6 +1843,155 @@ async function buildPurchaseReportWorkbook(report) {
   summarySheet.getRow(1).font = { bold: true, size: 16 };
   summarySheet.getRow(9).font = { bold: true };
   summarySheet.getRow(11 + report.summary.totalsBySupplier.length).font = { bold: true };
+
+  return workbook;
+}
+
+async function loadExpenseControlReport(from, to, filters = {}) {
+  const timeZone = process.env.NOTIFICATION_TIME_ZONE || "America/Mexico_City";
+  const params = [from, to, timeZone];
+  const conditions = [
+    `purchase_entries.created_at >= timezone($3, $1::date::timestamp)`,
+    `purchase_entries.created_at < timezone($3, ($2::date + INTERVAL '1 day')::timestamp)`
+  ];
+
+  if (filters.category) {
+    params.push(filters.category);
+    conditions.push(`purchase_entries.category = $${params.length}`);
+  }
+
+  const result = await query(
+    `SELECT
+       COALESCE(NULLIF(TRIM(purchase_entries.category), ''), 'Sin categoria') AS concept,
+       to_char(timezone($3, purchase_entries.created_at)::date, 'YYYY-MM-DD') AS date_key,
+       SUM(purchase_entries.total_cost)::numeric AS total_cost,
+       SUM(purchase_entries.quantity)::numeric AS total_units,
+       COUNT(*)::int AS entries
+     FROM purchase_entries
+     WHERE ${conditions.join("\n       AND ")}
+     GROUP BY
+       COALESCE(NULLIF(TRIM(purchase_entries.category), ''), 'Sin categoria'),
+       to_char(timezone($3, purchase_entries.created_at)::date, 'YYYY-MM-DD')
+     ORDER BY concept ASC, date_key ASC`,
+    params
+  );
+
+  const dates = reportDateKeys(from, to);
+  const dateTotals = Object.fromEntries(dates.map((date) => [date, 0]));
+  const conceptMap = new Map();
+  let totalCost = 0;
+  let totalUnits = 0;
+  let totalEntries = 0;
+
+  result.rows.forEach((row) => {
+    const concept = row.concept || "Sin categoria";
+    const dateKey = row.date_key;
+    const total = roundedMoney(row.total_cost);
+    const units = Number(row.total_units || 0);
+    const entries = Number(row.entries || 0);
+
+    if (!conceptMap.has(concept)) {
+      conceptMap.set(concept, {
+        concept,
+        days: Object.fromEntries(dates.map((date) => [date, 0])),
+        total: 0,
+        units: 0,
+        entries: 0
+      });
+    }
+
+    const item = conceptMap.get(concept);
+    item.days[dateKey] = roundedMoney((item.days[dateKey] || 0) + total);
+    item.total = roundedMoney(item.total + total);
+    item.units += units;
+    item.entries += entries;
+
+    if (dateKey in dateTotals) {
+      dateTotals[dateKey] = roundedMoney(dateTotals[dateKey] + total);
+    }
+    totalCost = roundedMoney(totalCost + total);
+    totalUnits += units;
+    totalEntries += entries;
+  });
+
+  const rows = [...conceptMap.values()].sort(
+    (a, b) => b.total - a.total || a.concept.localeCompare(b.concept, "es")
+  );
+  const highestDay = dates
+    .map((date) => ({ date, total: dateTotals[date] || 0 }))
+    .sort((a, b) => b.total - a.total)[0] || { date: "", total: 0 };
+
+  return {
+    range: { from, to },
+    filters,
+    dates,
+    summary: {
+      totalCost,
+      totalUnits,
+      totalEntries,
+      conceptCount: rows.length,
+      dateTotals,
+      highestDay
+    },
+    rows
+  };
+}
+
+async function buildExpenseControlWorkbook(report) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Inventario La Querendona";
+  workbook.created = new Date();
+  workbook.modified = new Date();
+
+  const sheet = workbook.addWorksheet("Control de Gastos");
+  sheet.properties.defaultRowHeight = 20;
+  const columnCount = Math.max(3, report.dates.length + 2);
+  const lastColumn = sheet.getColumn(columnCount).letter;
+
+  sheet.mergeCells(`A1:${lastColumn}1`);
+  sheet.getCell("A1").value = "Control de Gastos - Inventario La Querendona";
+  sheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
+  sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF156B73" } };
+  sheet.getCell("A1").alignment = { horizontal: "center" };
+
+  sheet.addRow([]);
+  sheet.addRow(["Fecha inicial", report.range.from, "", "Fecha final", report.range.to]);
+  sheet.addRow(["Categoria", report.filters?.category || "Todas"]);
+  sheet.addRow(["Gasto total", report.summary.totalCost, "", "Entradas", report.summary.totalEntries]);
+  sheet.addRow(["Conceptos", report.summary.conceptCount, "", "Unidades", report.summary.totalUnits]);
+  sheet.addRow([]);
+
+  const header = sheet.addRow([
+    "Concepto",
+    ...report.dates.map((date) => reportDateLabel(date)),
+    "Total"
+  ]);
+  header.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF17202A" } };
+  header.alignment = { horizontal: "center" };
+
+  report.rows.forEach((item) => {
+    sheet.addRow([
+      item.concept,
+      ...report.dates.map((date) => item.days[date] || 0),
+      item.total
+    ]);
+  });
+
+  const totalRow = sheet.addRow([
+    "Total",
+    ...report.dates.map((date) => report.summary.dateTotals[date] || 0),
+    report.summary.totalCost
+  ]);
+  totalRow.font = { bold: true };
+  totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDF4D5" } };
+
+  sheet.getColumn(1).width = 30;
+  for (let index = 2; index <= columnCount; index += 1) {
+    sheet.getColumn(index).width = 14;
+    sheet.getColumn(index).numFmt = '"$"#,##0.00';
+  }
+  sheet.views = [{ state: "frozen", xSplit: 1, ySplit: header.number }];
 
   return workbook;
 }
@@ -3920,6 +4098,34 @@ app.get("/api/reports/products.xlsx", authRequired, stockAccessRequired, async (
     res.end();
   } catch (error) {
     console.error(error);
+    next(error);
+  }
+});
+
+app.get("/api/reports/expense-control", authRequired, adminRequired, async (req, res, next) => {
+  try {
+    const { from, to } = parseReportRange(req);
+    const filters = parseExpenseControlFilters(req);
+    const report = await loadExpenseControlReport(from, to, filters);
+    res.json(report);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/reports/expense-control.xlsx", authRequired, adminRequired, async (req, res, next) => {
+  try {
+    const { from, to } = parseReportRange(req);
+    const filters = parseExpenseControlFilters(req);
+    const report = await loadExpenseControlReport(from, to, filters);
+    const workbook = await buildExpenseControlWorkbook(report);
+    const filename = `control-gastos-${from}-a-${to}.xlsx`;
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
     next(error);
   }
 });

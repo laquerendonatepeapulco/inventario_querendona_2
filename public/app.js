@@ -7,6 +7,7 @@ let state = {
   exitReport: null,
   purchaseReport: null,
   comparisonReport: null,
+  expenseControlReport: null,
   profitReport: null,
   stockAlerts: [],
   smartAlerts: [],
@@ -142,6 +143,16 @@ const els = {
   comparisonConsumedCost: document.querySelector("#comparisonConsumedCost"),
   comparisonNetUnits: document.querySelector("#comparisonNetUnits"),
   comparisonRows: document.querySelector("#comparisonRows"),
+  expenseStart: document.querySelector("#expenseStart"),
+  expenseEnd: document.querySelector("#expenseEnd"),
+  expenseCategory: document.querySelector("#expenseCategory"),
+  expenseTotalCost: document.querySelector("#expenseTotalCost"),
+  expenseConcepts: document.querySelector("#expenseConcepts"),
+  expenseEntries: document.querySelector("#expenseEntries"),
+  expenseTopDay: document.querySelector("#expenseTopDay"),
+  expenseTopDayLabel: document.querySelector("#expenseTopDayLabel"),
+  expenseControlHead: document.querySelector("#expenseControlHead"),
+  expenseControlRows: document.querySelector("#expenseControlRows"),
   purchaseForm: document.querySelector("#purchaseForm"),
   purchaseCategory: document.querySelector("#purchaseCategory"),
   purchaseSubcategory: document.querySelector("#purchaseSubcategory"),
@@ -365,6 +376,8 @@ function bindEvents() {
   document.querySelector("#clearExitRegisterForm").addEventListener("click", resetExitRegisterForm);
   document.querySelector("#loadComparisonReport").addEventListener("click", loadComparisonReport);
   document.querySelector("#downloadComparisonReport").addEventListener("click", downloadComparisonReport);
+  document.querySelector("#loadExpenseControlReport").addEventListener("click", loadExpenseControlReport);
+  document.querySelector("#downloadExpenseControlReport").addEventListener("click", downloadExpenseControlReport);
   document.querySelector("#loadPurchaseReport").addEventListener("click", loadPurchaseReport);
   document.querySelector("#downloadPurchaseReport").addEventListener("click", downloadPurchaseReport);
   document.querySelector("#openBulkPurchaseModal").addEventListener("click", openBulkPurchaseModal);
@@ -490,6 +503,7 @@ function bindEvents() {
     loadPurchaseReport();
   });
   els.purchaseReportProduct.addEventListener("change", loadPurchaseReport);
+  els.expenseCategory.addEventListener("change", loadExpenseControlReport);
   els.purchaseQuantity.addEventListener("input", updatePurchaseTotal);
   els.purchaseUnitCost.addEventListener("input", updatePurchaseTotal);
   els.exitRegisterQuantity.addEventListener("input", updateExitStockPreview);
@@ -672,10 +686,15 @@ if (!isAdmin()) {
     "#downloadIncomeReport",
     "#loadProfitReport",
     "#downloadProfitReport",
+    "#loadExpenseControlReport",
+    "#downloadExpenseControlReport",
     "#reportStart",
     "#reportEnd",
     "#profitStart",
     "#profitEnd",
+    "#expenseStart",
+    "#expenseEnd",
+    "#expenseCategory",
     "#importFile",
     "#resetPasswordUser",
     "#resetPasswordValue",
@@ -820,6 +839,7 @@ function switchPanel(panel) {
   if (panel === "reports" && isAdmin() && !state.incomeReport) loadIncomeReport();
   if (panel === "exits" && canManageStock() && !state.exitReport) loadExitReport();
   if (panel === "comparison" && canManageStock() && !state.comparisonReport) loadComparisonReport();
+  if (panel === "expenseControl" && isAdmin() && !state.expenseControlReport) loadExpenseControlReport();
   if (panel === "profit" && isAdmin() && !state.profitReport) loadProfitReport();
 }
 
@@ -865,6 +885,8 @@ function render() {
   renderIncomeReport();
   renderExitReport();
   renderComparisonReport();
+  renderExpenseControlCategoryOptions();
+  renderExpenseControlReport();
   renderProfitReport();
   renderResetPasswordUsers();
   animateChart();
@@ -1230,6 +1252,10 @@ function setDefaultReportDates() {
     els.profitStart.value = firstDayValue;
     els.profitEnd.value = today;
   }
+  if (els.expenseStart && els.expenseEnd) {
+    els.expenseStart.value = firstDayValue;
+    els.expenseEnd.value = today;
+  }
 }
 
 function reportQueryString() {
@@ -1275,6 +1301,17 @@ function profitQueryString() {
     from: els.profitStart.value,
     to: els.profitEnd.value
   });
+  return params.toString();
+}
+
+function expenseControlQueryString() {
+  const params = new URLSearchParams({
+    from: els.expenseStart.value,
+    to: els.expenseEnd.value
+  });
+  if (els.expenseCategory?.value && els.expenseCategory.value !== "all") {
+    params.set("category", els.expenseCategory.value);
+  }
   return params.toString();
 }
 
@@ -1614,6 +1651,20 @@ function renderPurchaseReportCategoryOptions() {
     els.purchaseReportCategory.append(option);
   });
   els.purchaseReportCategory.value = categories.includes(current) ? current : "all";
+}
+
+function renderExpenseControlCategoryOptions() {
+  if (!els.expenseCategory) return;
+  const current = els.expenseCategory.value || "all";
+  const categories = getCategoryOptions();
+  els.expenseCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
+  categories.forEach((category) => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    els.expenseCategory.append(option);
+  });
+  els.expenseCategory.value = categories.includes(current) ? current : "all";
 }
 
 function renderPurchaseReportProductFilter() {
@@ -2204,6 +2255,7 @@ async function saveBulkPurchase() {
   state.incomeReport = null;
   state.exitReport = null;
   state.comparisonReport = null;
+  state.expenseControlReport = null;
   render();
   showToast(`Entrada grande registrada: ${payload.summary?.totalEntries || 0} productos.`);
 }
@@ -2751,6 +2803,7 @@ async function saveEditedPurchase(event) {
   state.exitReport = null;
   state.comparisonReport = null;
   state.profitReport = null;
+  state.expenseControlReport = null;
   await loadRemoteData();
   await loadPurchaseReport();
   render();
@@ -2780,6 +2833,7 @@ async function deleteEditedPurchase() {
   state.exitReport = null;
   state.comparisonReport = null;
   state.profitReport = null;
+  state.expenseControlReport = null;
   await loadRemoteData();
   await loadPurchaseReport();
   render();
@@ -2845,6 +2899,7 @@ async function savePurchaseFromForm(event) {
   state.incomeReport = null;
   state.exitReport = null;
   state.comparisonReport = null;
+  state.expenseControlReport = null;
   render();
   showToast("Entrada registrada y stock actualizado.");
   switchPanel("entries");
@@ -3498,6 +3553,132 @@ async function downloadComparisonReport() {
   showToast("Comparativa descargada.");
 }
 
+async function loadExpenseControlReport() {
+  if (!requireAdmin()) return;
+  if (!els.expenseStart.value || !els.expenseEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/reports/expense-control?${expenseControlQueryString()}`);
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudo generar el control de gastos.");
+    return;
+  }
+
+  state.expenseControlReport = payload;
+  renderExpenseControlReport();
+}
+
+function renderExpenseControlReport() {
+  if (!els.expenseControlRows || !els.expenseControlHead) return;
+  const report = state.expenseControlReport;
+  const summary = report?.summary || { totalCost: 0, conceptCount: 0, totalEntries: 0, highestDay: null };
+  const dates = report?.dates || [];
+  const totalColumns = Math.max(1, dates.length + 2);
+
+  els.expenseTotalCost.textContent = formatter.format(summary.totalCost || 0);
+  els.expenseConcepts.textContent = summary.conceptCount || 0;
+  els.expenseEntries.textContent = summary.totalEntries || 0;
+  els.expenseTopDay.textContent = formatter.format(summary.highestDay?.total || 0);
+  els.expenseTopDayLabel.textContent = summary.highestDay?.total > 0
+    ? formatReportDateLabel(summary.highestDay.date)
+    : "Sin datos";
+
+  els.expenseControlHead.innerHTML = "";
+  els.expenseControlRows.innerHTML = "";
+
+  if (!isAdmin()) {
+    els.expenseControlRows.innerHTML = `
+      <tr>
+        <td colspan="${totalColumns}">
+          <div class="empty-state">Solo administradores pueden consultar el control de gastos.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  if (!report) {
+    els.expenseControlRows.innerHTML = `
+      <tr>
+        <td colspan="${totalColumns}">
+          <div class="empty-state">Genera el control de gastos para ver compras por concepto y dia.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  els.expenseControlHead.innerHTML = `
+    <tr>
+      <th class="expense-concept-column">Concepto</th>
+      ${dates.map((date) => `<th>${escapeHtml(formatReportDateLabel(date))}</th>`).join("")}
+      <th>Total</th>
+    </tr>`;
+
+  if (!report.rows.length) {
+    els.expenseControlRows.innerHTML = `
+      <tr>
+        <td colspan="${totalColumns}">
+          <div class="empty-state">No hay compras registradas en este rango de fechas.</div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  report.rows.forEach((item) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td class="expense-concept-column" data-label="Concepto">
+        <strong>${escapeHtml(item.concept)}</strong>
+        <small>${item.entries || 0} entradas</small>
+      </td>
+      ${dates.map((date) => `
+        <td data-label="${escapeHtml(formatReportDateLabel(date))}">
+          ${formatter.format(item.days?.[date] || 0)}
+        </td>`).join("")}
+      <td class="expense-total-cell" data-label="Total">${formatter.format(item.total || 0)}</td>
+    `;
+    els.expenseControlRows.append(row);
+  });
+
+  const totalRow = document.createElement("tr");
+  totalRow.className = "expense-total-row";
+  totalRow.innerHTML = `
+    <td class="expense-concept-column" data-label="Concepto"><strong>Total</strong></td>
+    ${dates.map((date) => `
+      <td data-label="${escapeHtml(formatReportDateLabel(date))}">
+        ${formatter.format(summary.dateTotals?.[date] || 0)}
+      </td>`).join("")}
+    <td class="expense-total-cell" data-label="Total">${formatter.format(summary.totalCost || 0)}</td>
+  `;
+  els.expenseControlRows.append(totalRow);
+}
+
+async function downloadExpenseControlReport() {
+  if (!requireAdmin()) return;
+  if (!els.expenseStart.value || !els.expenseEnd.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return;
+  }
+
+  const response = await window.Auth.apiFetch(`/api/reports/expense-control.xlsx?${expenseControlQueryString()}`);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    showToast(payload.error || "No se pudo descargar el control de gastos.");
+    return;
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `control-gastos-${els.expenseStart.value}-a-${els.expenseEnd.value}.xlsx`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+  showToast("Control de gastos descargado.");
+}
+
 function animateChart() {
   if (!els.chart) return;
   drawCategoryChart();
@@ -4063,6 +4244,11 @@ function formatDateInput(value) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatReportDateLabel(value) {
+  const [year, month, day] = String(value || "").split("-");
+  return year && month && day ? `${day}/${month}/${year}` : String(value || "");
 }
 
 function formatUnits(value) {

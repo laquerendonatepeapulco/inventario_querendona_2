@@ -950,6 +950,54 @@ tbody tr:hover {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.expense-table-wrap {
+  overflow: auto;
+}
+
+.expense-table {
+  min-width: max(780px, 100%);
+}
+
+.expense-table th,
+.expense-table td {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.expense-table .expense-concept-column {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 210px;
+  max-width: 280px;
+  background: var(--panel);
+  text-align: left;
+  white-space: normal;
+}
+
+.expense-table thead .expense-concept-column {
+  z-index: 3;
+  background: #17202a;
+}
+
+.expense-table .expense-concept-column small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.expense-total-cell,
+.expense-total-row {
+  font-weight: 800;
+}
+
+.expense-total-row td,
+.expense-total-row .expense-concept-column {
+  background: rgba(24, 128, 90, 0.12);
+}
+
 .setting-actions {
   justify-content: flex-start;
   flex-wrap: wrap;
@@ -1728,6 +1776,49 @@ label {
   .stock-control button {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  .expense-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+
+  .expense-table {
+    display: table;
+    min-width: 760px;
+  }
+
+  .expense-table thead {
+    display: table-header-group;
+  }
+
+  .expense-table tbody {
+    display: table-row-group;
+  }
+
+  .expense-table tbody tr {
+    display: table-row;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .expense-table th,
+  .expense-table td {
+    display: table-cell;
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .expense-table td::before {
+    content: none;
+  }
+
+  .expense-table td[colspan] {
+    display: table-cell;
+    padding: 18px;
   }
 }
 
