@@ -763,7 +763,6 @@ if (!isAdmin()) {
     "#comparisonEnd",
     "#purchaseStart",
     "#purchaseEnd",
-    "#purchaseCategory",
     "#purchaseReportCategory",
     "#purchaseReportProduct"
   ];
@@ -771,6 +770,9 @@ if (!isAdmin()) {
     const node = document.querySelector(selector);
     if (node) node.disabled = !canManageStock();
   });
+
+  if (els.purchaseCategory) els.purchaseCategory.disabled = true;
+  if (els.purchaseSubcategory) els.purchaseSubcategory.disabled = true;
 }
 
 function renderResetPasswordUsers() {
