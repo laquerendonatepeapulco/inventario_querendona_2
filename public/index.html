@@ -560,6 +560,14 @@
               </div>
             </div>
             <div class="form-grid">
+              <label>
+                Producto
+                <div class="product-autocomplete">
+                  <input id="exitProductSearch" name="productSearch" type="search" placeholder="Escribe para buscar producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="exitProductOptions" required />
+                  <input id="exitProduct" name="productId" type="hidden" />
+                  <div id="exitProductOptions" class="product-suggestions" role="listbox" hidden></div>
+                </div>
+              </label>
               <label class="exit-category-field">
                 Categoria
                 <select id="exitCategory" aria-label="Filtrar productos por categoria">
@@ -571,14 +579,6 @@
                 <select id="exitSubcategory" aria-label="Filtrar productos por subcategoria">
                   <option value="all">Todas las subcategorias</option>
                 </select>
-              </label>
-              <label>
-                Producto
-                <div class="product-autocomplete">
-                  <input id="exitProductSearch" name="productSearch" type="search" placeholder="Escribe para buscar producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="exitProductOptions" required />
-                  <input id="exitProduct" name="productId" type="hidden" />
-                  <div id="exitProductOptions" class="product-suggestions" role="listbox" hidden></div>
-                </div>
               </label>
               <label>
                 Unidad de medida
