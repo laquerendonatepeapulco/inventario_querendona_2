@@ -252,24 +252,24 @@
             </div>
             <div class="form-grid">
               <label>
-                Categoria
-                <select id="purchaseCategory" aria-label="Filtrar productos por categoria">
-                  <option value="all">Todas las categorias</option>
-                </select>
-              </label>
-              <label>
-                Subcategoria
-                <select id="purchaseSubcategory" aria-label="Filtrar productos por subcategoria">
-                  <option value="all">Todas las subcategorias</option>
-                </select>
-              </label>
-              <label>
                 Producto
                 <div class="product-autocomplete">
                   <input id="purchaseProductSearch" name="productSearch" type="search" placeholder="Escribe para buscar producto" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="purchaseProductOptions" required />
                   <input id="purchaseProduct" name="productId" type="hidden" />
                   <div id="purchaseProductOptions" class="product-suggestions" role="listbox" hidden></div>
                 </div>
+              </label>
+              <label>
+                Categoria
+                <select id="purchaseCategory" aria-label="Categoria del producto seleccionado" disabled>
+                  <option value="all">Todas las categorias</option>
+                </select>
+              </label>
+              <label>
+                Subcategoria
+                <select id="purchaseSubcategory" aria-label="Subcategoria del producto seleccionado" disabled>
+                  <option value="all">Todas las subcategorias</option>
+                </select>
               </label>
               <label>
                 Unidad de medida
@@ -1392,6 +1392,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="auth.js?v=20260519-2"></script>
-    <script src="app.js?v=20260729-1"></script>
+    <script src="app.js?v=20260729-2"></script>
   </body>
 </html>

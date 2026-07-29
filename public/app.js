@@ -1360,25 +1360,48 @@ function renderPurchaseOptions() {
   const selected = els.purchaseProduct.value;
   renderPurchaseCategoryOptions();
   renderPurchaseReportCategoryOptions();
+  const product = state.products.find((item) => item.id === selected);
 
-  const selectedCategory = els.purchaseCategory.value;
-  renderLinkedSubcategorySelect(els.purchaseSubcategory, selectedCategory);
-  const selectedSubcategory = els.purchaseSubcategory.value;
-  const products = [...state.products]
-    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
-
-  if (products.some((product) => product.id === selected)) {
-    const product = products.find((item) => item.id === selected);
+  if (product) {
+    syncPurchaseCategoryFields(product);
     els.purchaseProductSearch.value = purchaseProductOptionLabel(product);
   } else {
     els.purchaseProduct.value = "";
     els.purchaseProductSearch.value = "";
+    syncPurchaseCategoryFields(null);
   }
 
   renderPurchaseSupplierOptions();
   updatePurchaseMeasureOptions();
   renderPurchaseReportProductFilter();
+}
+
+function syncPurchaseCategoryFields(product) {
+  if (!product) {
+    els.purchaseCategory.innerHTML = `<option value="all">Selecciona producto</option>`;
+    els.purchaseCategory.value = "all";
+    els.purchaseSubcategory.innerHTML = `<option value="all">Selecciona producto</option>`;
+    els.purchaseSubcategory.value = "all";
+    return;
+  }
+
+  renderPurchaseCategoryOptions();
+  renderLinkedSubcategorySelect(els.purchaseSubcategory, product.category || "all");
+
+  els.purchaseCategory.value = product.category || "all";
+
+  if (product?.subcategory) {
+    const hasSubcategory = [...els.purchaseSubcategory.options].some((option) => option.value === product.subcategory);
+    if (!hasSubcategory) {
+      const option = document.createElement("option");
+      option.value = product.subcategory;
+      option.textContent = product.subcategory;
+      els.purchaseSubcategory.append(option);
+    }
+    els.purchaseSubcategory.value = product.subcategory;
+  } else {
+    els.purchaseSubcategory.value = "all";
+  }
 }
 
 function purchaseProductOptionLabel(product) {
@@ -1492,10 +1515,7 @@ function sortAutocompleteProducts(products, query) {
 }
 
 function getPurchaseAutocompleteProducts(query = "") {
-  const selectedCategory = els.purchaseCategory.value;
-  const selectedSubcategory = els.purchaseSubcategory.value || "all";
   const products = state.products
-    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .filter((product) => productMatchesSearch(product, query));
   return sortAutocompleteProducts(products, query);
 }
@@ -1728,6 +1748,7 @@ function renderPurchaseReportProductFilter() {
 function fillPurchaseDefaults() {
   const product = state.products.find((item) => item.id === els.purchaseProduct.value);
   if (!product) {
+    syncPurchaseCategoryFields(null);
     renderPurchaseSupplierOptions();
     updatePurchaseMeasureOptions();
     els.purchaseUnitCost.value = "";
@@ -1735,6 +1756,7 @@ function fillPurchaseDefaults() {
     return;
   }
 
+  syncPurchaseCategoryFields(product);
   renderPurchaseSupplierOptions(product.supplier || els.purchaseSupplier.value);
   updatePurchaseMeasureOptions();
   els.purchaseUnitCost.value = Number(product.cost || 0).toFixed(2);
