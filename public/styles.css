@@ -1621,8 +1621,8 @@ label {
     grid-column: 1 / -1;
   }
 
-  #purchaseForm .purchase-category-field,
-  #purchaseForm .purchase-subcategory-field {
+  #purchaseForm .form-grid > .purchase-category-field,
+  #purchaseForm .form-grid > .purchase-subcategory-field {
     grid-column: span 1;
     min-width: 0;
   }
