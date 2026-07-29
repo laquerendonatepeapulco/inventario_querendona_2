@@ -503,6 +503,8 @@ function bindEvents() {
     loadPurchaseReport();
   });
   els.purchaseReportProduct.addEventListener("change", loadPurchaseReport);
+  els.expenseStart.addEventListener("change", () => handleExpenseWeekDateChange(els.expenseStart.value));
+  els.expenseEnd.addEventListener("change", () => handleExpenseWeekDateChange(els.expenseEnd.value));
   els.expenseCategory.addEventListener("change", loadExpenseControlReport);
   els.purchaseQuantity.addEventListener("input", updatePurchaseTotal);
   els.purchaseUnitCost.addEventListener("input", updatePurchaseTotal);
@@ -1253,8 +1255,46 @@ function setDefaultReportDates() {
     els.profitEnd.value = today;
   }
   if (els.expenseStart && els.expenseEnd) {
-    els.expenseStart.value = firstDayValue;
-    els.expenseEnd.value = today;
+    setExpenseWeekRange(now);
+  }
+}
+
+function parseDateInputValue(value) {
+  const [year, month, day] = String(value || "").split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function expenseWeekRangeForDate(value) {
+  const reference = value instanceof Date ? value : parseDateInputValue(value);
+  if (!reference || Number.isNaN(reference.getTime())) return null;
+
+  const start = new Date(reference.getFullYear(), reference.getMonth(), reference.getDate());
+  start.setDate(start.getDate() - start.getDay());
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  return {
+    from: formatDateInput(start),
+    to: formatDateInput(end)
+  };
+}
+
+function setExpenseWeekRange(value) {
+  if (!els.expenseStart || !els.expenseEnd) return false;
+  const range = expenseWeekRangeForDate(value);
+  if (!range) return false;
+
+  els.expenseStart.value = range.from;
+  els.expenseEnd.value = range.to;
+  return true;
+}
+
+function handleExpenseWeekDateChange(value) {
+  if (!setExpenseWeekRange(value)) return;
+  state.expenseControlReport = null;
+  if (activePanel === "expenseControl") {
+    loadExpenseControlReport();
   }
 }
 
@@ -3559,6 +3599,7 @@ async function loadExpenseControlReport() {
     showToast("Selecciona fecha inicial y final.");
     return;
   }
+  setExpenseWeekRange(els.expenseStart.value);
 
   const response = await window.Auth.apiFetch(`/api/reports/expense-control?${expenseControlQueryString()}`);
   const payload = await response.json();
@@ -3661,6 +3702,7 @@ async function downloadExpenseControlReport() {
     showToast("Selecciona fecha inicial y final.");
     return;
   }
+  setExpenseWeekRange(els.expenseStart.value);
 
   const response = await window.Auth.apiFetch(`/api/reports/expense-control.xlsx?${expenseControlQueryString()}`);
   if (!response.ok) {
