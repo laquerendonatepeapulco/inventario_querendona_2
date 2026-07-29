@@ -165,6 +165,7 @@ const els = {
   purchaseUnitCost: document.querySelector("#purchaseUnitCost"),
   purchaseNote: document.querySelector("#purchaseNote"),
   purchaseTotal: document.querySelector("#purchaseTotal"),
+  purchaseTotalMobile: document.querySelector("#purchaseTotalMobile"),
   purchaseStart: document.querySelector("#purchaseStart"),
   purchaseEnd: document.querySelector("#purchaseEnd"),
   purchaseReportCategory: document.querySelector("#purchaseReportCategory"),
@@ -1767,14 +1768,16 @@ function fillPurchaseDefaults() {
 }
 
 function updatePurchaseTotal() {
-  if (!els.purchaseTotal) return;
+  if (!els.purchaseTotal && !els.purchaseTotalMobile) return;
   const quantity = Number(els.purchaseQuantity.value || 0);
   const unitCost = measuredUnitPrice(
     Number(els.purchaseUnitCost.value || 0),
     selectedMeasureUnitValue(els.purchaseMeasureUnit)
   );
   const total = Number.isFinite(quantity) && Number.isFinite(unitCost) ? quantity * unitCost : 0;
-  els.purchaseTotal.textContent = formatter.format(Math.max(total, 0));
+  const totalText = formatter.format(Math.max(total, 0));
+  if (els.purchaseTotal) els.purchaseTotal.textContent = totalText;
+  if (els.purchaseTotalMobile) els.purchaseTotalMobile.textContent = totalText;
 }
 
 function supplierKey(value) {

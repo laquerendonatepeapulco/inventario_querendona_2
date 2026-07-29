@@ -848,6 +848,10 @@ tbody tr:hover {
   background: var(--panel-strong);
 }
 
+.purchase-total-mobile {
+  display: none;
+}
+
 .purchase-total span,
 .purchase-total strong {
   display: block;
@@ -1619,6 +1623,16 @@ label {
   .purchase-form .section-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  #purchaseForm .purchase-total-desktop {
+    display: none;
+  }
+
+  #purchaseForm .purchase-total-mobile {
+    display: block;
+    width: 100%;
+    margin-top: 14px;
   }
 
   .toolbar-actions > *,
