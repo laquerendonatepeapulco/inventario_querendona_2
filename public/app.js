@@ -774,6 +774,8 @@ if (!isAdmin()) {
 
   if (els.purchaseCategory) els.purchaseCategory.disabled = true;
   if (els.purchaseSubcategory) els.purchaseSubcategory.disabled = true;
+  if (els.exitCategory) els.exitCategory.disabled = true;
+  if (els.exitSubcategory) els.exitSubcategory.disabled = true;
 }
 
 function renderResetPasswordUsers() {
@@ -1524,11 +1526,8 @@ function getPurchaseAutocompleteProducts(query = "") {
 }
 
 function getExitAutocompleteProducts(query = "") {
-  const selectedCategory = els.exitCategory.value;
-  const selectedSubcategory = els.exitSubcategory.value || "all";
   const products = state.products
     .filter((product) => Number(product.stock) > 0)
-    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .filter((product) => productMatchesSearch(product, query));
   return sortAutocompleteProducts(products, query);
 }
@@ -2592,25 +2591,15 @@ function renderExitOptions() {
   if (!els.exitProductOptions) return;
   const selected = els.exitProduct.value;
   renderExitCategoryOptions();
+  const product = state.products.find((item) => item.id === selected && Number(item.stock) > 0);
 
-  const selectedCategory = els.exitCategory.value;
-  renderLinkedSubcategorySelect(
-    els.exitSubcategory,
-    selectedCategory,
-    state.products.filter((product) => Number(product.stock) > 0)
-  );
-  const selectedSubcategory = els.exitSubcategory.value || "all";
-  const products = [...state.products]
-    .filter((product) => Number(product.stock) > 0)
-    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
-
-  if (products.some((product) => product.id === selected)) {
-    const product = products.find((item) => item.id === selected);
+  if (product) {
+    syncExitCategoryFields(product);
     els.exitProductSearch.value = exitProductOptionLabel(product);
   } else {
     els.exitProduct.value = "";
     els.exitProductSearch.value = "";
+    syncExitCategoryFields(null);
   }
   renderExitSupplierOptions();
   fillExitRegisterDefaults();
@@ -2635,6 +2624,38 @@ function exitProductOptionLabel(product) {
   return `${product.name} · ${product.sku} · ${category} · ${formatUnits(product.stock)}`;
 }
 
+function syncExitCategoryFields(product) {
+  if (!product) {
+    els.exitCategory.innerHTML = `<option value="all">Selecciona producto</option>`;
+    els.exitCategory.value = "all";
+    els.exitSubcategory.innerHTML = `<option value="all">Selecciona producto</option>`;
+    els.exitSubcategory.value = "all";
+    return;
+  }
+
+  renderExitCategoryOptions();
+  renderLinkedSubcategorySelect(
+    els.exitSubcategory,
+    product.category || "all",
+    state.products.filter((item) => Number(item.stock) > 0)
+  );
+
+  els.exitCategory.value = product.category || "all";
+
+  if (product?.subcategory) {
+    const hasSubcategory = [...els.exitSubcategory.options].some((option) => option.value === product.subcategory);
+    if (!hasSubcategory) {
+      const option = document.createElement("option");
+      option.value = product.subcategory;
+      option.textContent = product.subcategory;
+      els.exitSubcategory.append(option);
+    }
+    els.exitSubcategory.value = product.subcategory;
+  } else {
+    els.exitSubcategory.value = "all";
+  }
+}
+
 function syncExitProductFromSearch() {
   syncProductSearch("exit");
   fillExitRegisterDefaults();
@@ -2642,6 +2663,7 @@ function syncExitProductFromSearch() {
 
 function fillExitRegisterDefaults() {
   const product = state.products.find((item) => item.id === els.exitProduct.value);
+  syncExitCategoryFields(product || null);
   renderExitSupplierOptions(product?.supplier || els.exitSupplierType.value);
   updateExitMeasureOptions();
   if (!els.exitRegisterQuantity.value) els.exitRegisterQuantity.value = product ? 1 : "";
