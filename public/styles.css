@@ -568,6 +568,38 @@ select,
   margin-top: 0;
 }
 
+.admin-alert-toolbar,
+.alert-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-alert-resolve-all {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.alert-pager {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.alert-pager .icon-button {
+  width: 36px;
+  height: 36px;
+}
+
+.alert-pager .icon-button:disabled,
+.admin-alert-resolve-all:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .workspace-section {
   padding: 18px;
 }

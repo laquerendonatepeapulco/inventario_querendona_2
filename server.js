@@ -3683,6 +3683,25 @@ app.get("/api/restock-suggestions", authRequired, adminRequired, async (req, res
   }
 });
 
+app.patch("/api/stock-alerts/resolve-open", authRequired, adminRequired, async (req, res, next) => {
+  try {
+    const result = await query(
+      `UPDATE stock_alerts
+       SET status = 'resolved', resolved_by = $1, resolved_at = now()
+       WHERE status = 'open'
+       RETURNING *`,
+      [req.user.id]
+    );
+
+    res.json({
+      resolved: result.rowCount,
+      alerts: result.rows.map(stockAlertDto)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.patch("/api/stock-alerts/:id/resolve", authRequired, adminRequired, async (req, res, next) => {
   try {
     const result = await query(

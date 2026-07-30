@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Inventario "La Querendona"</title>
     <link rel="icon" href="img/logo_pestaña.png" type="image/png">
-    <link rel="stylesheet" href="styles.css?v=20260729-4" />
+    <link rel="stylesheet" href="styles.css?v=20260730-1" />
   </head>
   <body>
     <div class="app-shell">
@@ -168,9 +168,17 @@
                   <p class="eyebrow">Avisos de usuarios</p>
                   <h3>Productos reportados como agotados</h3>
                 </div>
-                <span id="adminAlertCount" class="badge low">0 abiertos</span>
+                <div class="admin-alert-toolbar">
+                  <span id="adminAlertCount" class="badge low">0 abiertos</span>
+                  <button id="resolveAllAlerts" class="ghost-button admin-alert-resolve-all" type="button" hidden>Marcar todos como atendidos</button>
+                </div>
               </div>
               <div id="adminAlertList" class="alert-list"></div>
+              <div id="adminAlertPager" class="alert-pager" hidden>
+                <button id="adminAlertPrev" class="icon-button" type="button" title="Avisos anteriores">‹</button>
+                <span id="adminAlertPageInfo">0 de 0</span>
+                <button id="adminAlertNext" class="icon-button" type="button" title="Mas avisos">›</button>
+              </div>
             </section>
           </div>
 
@@ -1396,6 +1404,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="auth.js?v=20260519-2"></script>
-    <script src="app.js?v=20260730-2"></script>
+    <script src="app.js?v=20260730-3"></script>
   </body>
 </html>

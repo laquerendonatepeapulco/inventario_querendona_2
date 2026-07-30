@@ -18,6 +18,7 @@ let currentUser = window.Auth.requireSession();
 let activePanel = "dashboard";
 let bulkPurchaseItems = [];
 let bulkExitItems = [];
+let adminAlertPage = 0;
 
 const DEFAULT_SUPPLIERS = ["Proveedor local", "Proveedor externo"];
 const BASE_CATEGORIES = ["Agua", "Carne", "Cerveza", "Desechables", "Productos de Limpieza", "Refresco"];
@@ -84,6 +85,7 @@ const STANDARD_MEASURE_UNITS = [
 const MEAT_MEASURE_UNITS = ["1 kg", "1/2 kg", "1/4 kg"];
 const MEAT_CUSTOM_MEASURE_VALUE = "__custom_meat_measure__";
 const PRODUCT_SUGGESTION_LIMIT = 8;
+const ADMIN_ALERT_PAGE_SIZE = 5;
 const productSuggestionState = {
   purchase: { products: [], activeIndex: -1 },
   exit: { products: [], activeIndex: -1 },
@@ -108,6 +110,11 @@ const els = {
   adminAlertSection: document.querySelector("#adminAlertSection"),
   adminAlertList: document.querySelector("#adminAlertList"),
   adminAlertCount: document.querySelector("#adminAlertCount"),
+  adminAlertPager: document.querySelector("#adminAlertPager"),
+  adminAlertPrev: document.querySelector("#adminAlertPrev"),
+  adminAlertNext: document.querySelector("#adminAlertNext"),
+  adminAlertPageInfo: document.querySelector("#adminAlertPageInfo"),
+  resolveAllAlerts: document.querySelector("#resolveAllAlerts"),
   movementTimeline: document.querySelector("#movementTimeline"),
   movementTypeFilter: document.querySelector("#movementTypeFilter"),
   reportStart: document.querySelector("#reportStart"),
@@ -362,6 +369,9 @@ function bindEvents() {
   document.querySelector("#downloadBackup").addEventListener("click", downloadBackup);
   document.querySelector("#resetDemo").addEventListener("click", resetDemo);
   document.querySelector("#clearMovements").addEventListener("click", clearMovements);
+  els.resolveAllAlerts?.addEventListener("click", resolveAllStockAlerts);
+  els.adminAlertPrev?.addEventListener("click", () => changeAdminAlertPage(-1));
+  els.adminAlertNext?.addEventListener("click", () => changeAdminAlertPage(1));
   document.querySelector("#loadIncomeReport").addEventListener("click", loadIncomeReport);
   document.querySelector("#downloadIncomeReport").addEventListener("click", downloadIncomeReport);
   document.querySelectorAll("#downloadCategoryExcel, #mobileDownloadCategoryExcel").forEach((button) => {button.addEventListener("click", downloadCategoryExcel);});
@@ -1152,15 +1162,33 @@ function renderAdminAlerts() {
   if (!els.adminAlertSection || !isAdmin()) return;
 
   const alerts = state.stockAlerts.filter((alert) => alert.status === "open");
+  const totalPages = Math.max(1, Math.ceil(alerts.length / ADMIN_ALERT_PAGE_SIZE));
+  adminAlertPage = Math.min(adminAlertPage, totalPages - 1);
+  const startIndex = adminAlertPage * ADMIN_ALERT_PAGE_SIZE;
+  const visibleAlerts = alerts.slice(startIndex, startIndex + ADMIN_ALERT_PAGE_SIZE);
   els.adminAlertCount.textContent = `${alerts.length} abiertos`;
   els.adminAlertList.innerHTML = "";
+  if (els.resolveAllAlerts) {
+    els.resolveAllAlerts.hidden = !alerts.length;
+    els.resolveAllAlerts.disabled = !alerts.length;
+  }
+  if (els.adminAlertPager) {
+    const hasPages = alerts.length > ADMIN_ALERT_PAGE_SIZE;
+    els.adminAlertPager.hidden = !hasPages;
+    if (els.adminAlertPrev) els.adminAlertPrev.disabled = adminAlertPage <= 0;
+    if (els.adminAlertNext) els.adminAlertNext.disabled = adminAlertPage >= totalPages - 1;
+    if (els.adminAlertPageInfo) {
+      const endIndex = Math.min(startIndex + visibleAlerts.length, alerts.length);
+      els.adminAlertPageInfo.textContent = `${startIndex + 1}-${endIndex} de ${alerts.length}`;
+    }
+  }
 
   if (!alerts.length) {
     els.adminAlertList.innerHTML = `<div class="empty-state">No hay avisos pendientes de usuarios.</div>`;
     return;
   }
 
-  alerts.forEach((alert) => {
+  visibleAlerts.forEach((alert) => {
     const item = document.createElement("article");
     item.className = "alert-item";
     item.innerHTML = `
@@ -1178,6 +1206,13 @@ function renderAdminAlerts() {
   });
 }
 
+function changeAdminAlertPage(delta) {
+  const alerts = state.stockAlerts.filter((alert) => alert.status === "open");
+  const totalPages = Math.max(1, Math.ceil(alerts.length / ADMIN_ALERT_PAGE_SIZE));
+  adminAlertPage = Math.min(Math.max(adminAlertPage + delta, 0), totalPages - 1);
+  renderAdminAlerts();
+}
+
 async function resolveStockAlert(event) {
   if (!requireAdmin()) return;
   const id = event.currentTarget.dataset.id;
@@ -1190,6 +1225,25 @@ async function resolveStockAlert(event) {
   await loadRemoteData();
   render();
   showToast("Aviso marcado como atendido.");
+}
+
+async function resolveAllStockAlerts() {
+  if (!requireAdmin()) return;
+  const alerts = state.stockAlerts.filter((alert) => alert.status === "open");
+  if (!alerts.length) return;
+  if (!confirm(`Marcar ${alerts.length} avisos abiertos como atendidos?`)) return;
+
+  const response = await window.Auth.apiFetch("/api/stock-alerts/resolve-open", { method: "PATCH" });
+  const payload = await response.json();
+  if (!response.ok) {
+    showToast(payload.error || "No se pudieron atender todos los avisos.");
+    return;
+  }
+
+  adminAlertPage = 0;
+  await loadRemoteData();
+  render();
+  showToast(`${payload.resolved || 0} avisos marcados como atendidos.`);
 }
 
 function renderMovementTypeFilter() {
