@@ -778,6 +778,8 @@ if (!isAdmin()) {
   if (els.bulkPurchaseSubcategory) els.bulkPurchaseSubcategory.disabled = true;
   if (els.exitCategory) els.exitCategory.disabled = true;
   if (els.exitSubcategory) els.exitSubcategory.disabled = true;
+  if (els.bulkExitCategory) els.bulkExitCategory.disabled = true;
+  if (els.bulkExitSubcategory) els.bulkExitSubcategory.disabled = true;
 }
 
 function renderResetPasswordUsers() {
@@ -1541,11 +1543,8 @@ function getBulkPurchaseAutocompleteProducts(query = "") {
 }
 
 function getBulkExitAutocompleteProducts(query = "") {
-  const selectedCategory = els.bulkExitCategory.value;
-  const selectedSubcategory = els.bulkExitSubcategory.value || "all";
   const products = state.products
     .filter((product) => Number(product.stock) > 0)
-    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .filter((product) => productMatchesSearch(product, query));
   return sortAutocompleteProducts(products, query);
 }
@@ -2361,11 +2360,6 @@ async function saveBulkPurchase() {
 function openBulkExitModal() {
   if (!requireStockAccess()) return;
   renderBulkExitCategoryOptions();
-  renderLinkedSubcategorySelect(
-    els.bulkExitSubcategory,
-    els.bulkExitCategory.value,
-    state.products.filter((product) => Number(product.stock) > 0)
-  );
   renderBulkExitProductOptions();
   renderBulkExitItems();
   updateBulkExitMeasureOptions();
@@ -2397,32 +2391,62 @@ function renderBulkExitCategoryOptions() {
 function renderBulkExitProductOptions() {
   if (!els.bulkExitProduct) return;
   const selected = els.bulkExitProduct.value;
-  const selectedCategory = els.bulkExitCategory.value;
-  const selectedSubcategory = els.bulkExitSubcategory.value || "all";
-  const products = [...state.products]
-    .filter((product) => Number(product.stock) > 0)
-    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const product = state.products.find((item) => item.id === selected && Number(item.stock) > 0);
 
-  if (products.some((product) => product.id === selected)) {
-    const product = products.find((item) => item.id === selected);
+  if (product) {
+    syncBulkExitCategoryFields(product);
     els.bulkExitProductSearch.value = exitProductOptionLabel(product);
   } else {
     els.bulkExitProduct.value = "";
     els.bulkExitProductSearch.value = "";
+    syncBulkExitCategoryFields(null);
   }
   renderBulkExitSupplierOptions();
   updateBulkExitMeasureOptions();
 }
 
+function syncBulkExitCategoryFields(product) {
+  if (!product) {
+    els.bulkExitCategory.innerHTML = `<option value="all">Selecciona producto</option>`;
+    els.bulkExitCategory.value = "all";
+    els.bulkExitSubcategory.innerHTML = `<option value="all">Selecciona producto</option>`;
+    els.bulkExitSubcategory.value = "all";
+    return;
+  }
+
+  renderBulkExitCategoryOptions();
+  renderLinkedSubcategorySelect(
+    els.bulkExitSubcategory,
+    product.category || "all",
+    state.products.filter((item) => Number(item.stock) > 0)
+  );
+
+  els.bulkExitCategory.value = product.category || "all";
+
+  if (product?.subcategory) {
+    const hasSubcategory = [...els.bulkExitSubcategory.options].some((option) => option.value === product.subcategory);
+    if (!hasSubcategory) {
+      const option = document.createElement("option");
+      option.value = product.subcategory;
+      option.textContent = product.subcategory;
+      els.bulkExitSubcategory.append(option);
+    }
+    els.bulkExitSubcategory.value = product.subcategory;
+  } else {
+    els.bulkExitSubcategory.value = "all";
+  }
+}
+
 function fillBulkExitDefaults() {
   const product = state.products.find((item) => item.id === els.bulkExitProduct.value);
   if (!product) {
+    syncBulkExitCategoryFields(null);
     renderBulkExitSupplierOptions();
     updateBulkExitMeasureOptions();
     els.bulkExitQuantity.removeAttribute("max");
     return;
   }
+  syncBulkExitCategoryFields(product);
   renderBulkExitSupplierOptions(product.supplier || els.bulkExitSupplierType.value);
   updateBulkExitMeasureOptions();
   if (!els.bulkExitQuantity.value) els.bulkExitQuantity.value = 1;
@@ -2489,6 +2513,7 @@ function addBulkExitItem() {
   els.bulkExitProductSearch.value = "";
   els.bulkExitQuantity.value = "";
   els.bulkExitQuantity.removeAttribute("max");
+  syncBulkExitCategoryFields(null);
   closeProductSuggestions("bulkExit");
   updateBulkExitMeasureOptions();
   renderBulkExitItems();
@@ -2606,6 +2631,11 @@ async function saveBulkExit() {
   }
 
   bulkExitItems = [];
+  els.bulkExitProduct.value = "";
+  els.bulkExitProductSearch.value = "";
+  els.bulkExitQuantity.value = "";
+  els.bulkExitQuantity.removeAttribute("max");
+  syncBulkExitCategoryFields(null);
   els.bulkExitNote.value = exitTypeNotes[els.bulkExitMovementType.value] || "Uso en cocina";
   closeBulkExitModal();
   await loadRemoteData();
