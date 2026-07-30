@@ -522,6 +522,8 @@ function bindEvents() {
     loadPurchaseReport();
   });
   els.purchaseReportProduct.addEventListener("change", loadPurchaseReport);
+  els.exitStart.addEventListener("change", () => handleExitWeekDateChange(els.exitStart.value));
+  els.exitEnd.addEventListener("change", () => handleExitWeekDateChange(els.exitEnd.value));
   els.comparisonStart.addEventListener("change", () => handleComparisonWeekDateChange(els.comparisonStart.value));
   els.comparisonEnd.addEventListener("change", () => handleComparisonWeekDateChange(els.comparisonEnd.value));
   els.expenseStart.addEventListener("change", () => handleExpenseWeekDateChange(els.expenseStart.value));
@@ -1346,8 +1348,7 @@ function setDefaultReportDates() {
     els.reportEnd.value = today;
   }
   if (els.exitStart && els.exitEnd) {
-    els.exitStart.value = firstDayValue;
-    els.exitEnd.value = today;
+    setExitWeekRange(now);
   }
   if (els.comparisonStart && els.comparisonEnd) {
     setComparisonWeekRange(now);
@@ -1384,6 +1385,24 @@ function weekRangeForDate(value) {
     from: formatDateInput(start),
     to: formatDateInput(end)
   };
+}
+
+function setExitWeekRange(value) {
+  if (!els.exitStart || !els.exitEnd) return false;
+  const range = weekRangeForDate(value);
+  if (!range) return false;
+
+  els.exitStart.value = range.from;
+  els.exitEnd.value = range.to;
+  return true;
+}
+
+function handleExitWeekDateChange(value) {
+  if (!setExitWeekRange(value)) return;
+  state.exitReport = null;
+  if (activePanel === "exits") {
+    loadExitReport();
+  }
 }
 
 function setComparisonWeekRange(value) {
@@ -3440,6 +3459,7 @@ async function loadExitReport() {
     showToast("Selecciona fecha inicial y final.");
     return;
   }
+  setExitWeekRange(els.exitStart.value);
 
   const response = await window.Auth.apiFetch(`/api/reports/exits?${exitQueryString()}`);
   const payload = await response.json();
@@ -3690,6 +3710,7 @@ async function downloadExitReport() {
     showToast("Selecciona fecha inicial y final.");
     return;
   }
+  setExitWeekRange(els.exitStart.value);
 
   const response = await window.Auth.apiFetch(`/api/reports/exits.xlsx?${exitQueryString()}`);
   if (!response.ok) {
