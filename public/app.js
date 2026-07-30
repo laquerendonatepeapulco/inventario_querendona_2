@@ -522,6 +522,8 @@ function bindEvents() {
     loadPurchaseReport();
   });
   els.purchaseReportProduct.addEventListener("change", loadPurchaseReport);
+  els.purchaseStart.addEventListener("change", () => handlePurchaseWeekDateChange(els.purchaseStart.value));
+  els.purchaseEnd.addEventListener("change", () => handlePurchaseWeekDateChange(els.purchaseEnd.value));
   els.exitStart.addEventListener("change", () => handleExitWeekDateChange(els.exitStart.value));
   els.exitEnd.addEventListener("change", () => handleExitWeekDateChange(els.exitEnd.value));
   els.comparisonStart.addEventListener("change", () => handleComparisonWeekDateChange(els.comparisonStart.value));
@@ -1354,8 +1356,7 @@ function setDefaultReportDates() {
     setComparisonWeekRange(now);
   }
   if (els.purchaseStart && els.purchaseEnd) {
-    els.purchaseStart.value = firstDayValue;
-    els.purchaseEnd.value = today;
+    setPurchaseWeekRange(now);
   }
   if (els.profitStart && els.profitEnd) {
     els.profitStart.value = firstDayValue;
@@ -1402,6 +1403,24 @@ function handleExitWeekDateChange(value) {
   state.exitReport = null;
   if (activePanel === "exits") {
     loadExitReport();
+  }
+}
+
+function setPurchaseWeekRange(value) {
+  if (!els.purchaseStart || !els.purchaseEnd) return false;
+  const range = weekRangeForDate(value);
+  if (!range) return false;
+
+  els.purchaseStart.value = range.from;
+  els.purchaseEnd.value = range.to;
+  return true;
+}
+
+function handlePurchaseWeekDateChange(value) {
+  if (!setPurchaseWeekRange(value)) return;
+  state.purchaseReport = null;
+  if (activePanel === "entries") {
+    loadPurchaseReport();
   }
 }
 
@@ -2913,6 +2932,7 @@ async function loadPurchaseReport() {
     showToast("Selecciona fecha inicial y final.");
     return;
   }
+  setPurchaseWeekRange(els.purchaseStart.value);
 
   const response = await window.Auth.apiFetch(`/api/purchases?${purchaseQueryString()}`);
   const payload = await response.json();
@@ -3196,6 +3216,7 @@ async function downloadPurchaseReport() {
     showToast("Selecciona fecha inicial y final.");
     return;
   }
+  setPurchaseWeekRange(els.purchaseStart.value);
 
   const response = await window.Auth.apiFetch(`/api/purchases.xlsx?${purchaseQueryString()}`);
   if (!response.ok) {
