@@ -774,6 +774,8 @@ if (!isAdmin()) {
 
   if (els.purchaseCategory) els.purchaseCategory.disabled = true;
   if (els.purchaseSubcategory) els.purchaseSubcategory.disabled = true;
+  if (els.bulkPurchaseCategory) els.bulkPurchaseCategory.disabled = true;
+  if (els.bulkPurchaseSubcategory) els.bulkPurchaseSubcategory.disabled = true;
   if (els.exitCategory) els.exitCategory.disabled = true;
   if (els.exitSubcategory) els.exitSubcategory.disabled = true;
 }
@@ -1533,10 +1535,7 @@ function getExitAutocompleteProducts(query = "") {
 }
 
 function getBulkPurchaseAutocompleteProducts(query = "") {
-  const selectedCategory = els.bulkPurchaseCategory.value;
-  const selectedSubcategory = els.bulkPurchaseSubcategory.value || "all";
   const products = state.products
-    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
     .filter((product) => productMatchesSearch(product, query));
   return sortAutocompleteProducts(products, query);
 }
@@ -2097,31 +2096,58 @@ function renderBulkPurchaseCategoryOptions() {
 function renderBulkPurchaseProductOptions() {
   if (!els.bulkPurchaseProduct) return;
   const selected = els.bulkPurchaseProduct.value;
-  const selectedCategory = els.bulkPurchaseCategory.value;
-  const selectedSubcategory = els.bulkPurchaseSubcategory.value || "all";
-  const products = [...state.products]
-    .filter((product) => matchesCategoryAndSubcategory(product, selectedCategory, selectedSubcategory))
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const product = state.products.find((item) => item.id === selected);
 
-  if (products.some((product) => product.id === selected)) {
-    const product = products.find((item) => item.id === selected);
+  if (product) {
+    syncBulkPurchaseCategoryFields(product);
     els.bulkPurchaseProductSearch.value = purchaseProductOptionLabel(product);
   } else {
     els.bulkPurchaseProduct.value = "";
     els.bulkPurchaseProductSearch.value = "";
+    syncBulkPurchaseCategoryFields(null);
   }
   renderBulkPurchaseSupplierOptions();
   updateBulkPurchaseMeasureOptions();
 }
 
+function syncBulkPurchaseCategoryFields(product) {
+  if (!product) {
+    els.bulkPurchaseCategory.innerHTML = `<option value="all">Selecciona producto</option>`;
+    els.bulkPurchaseCategory.value = "all";
+    els.bulkPurchaseSubcategory.innerHTML = `<option value="all">Selecciona producto</option>`;
+    els.bulkPurchaseSubcategory.value = "all";
+    return;
+  }
+
+  renderBulkPurchaseCategoryOptions();
+  renderLinkedSubcategorySelect(els.bulkPurchaseSubcategory, product.category || "all");
+
+  els.bulkPurchaseCategory.value = product.category || "all";
+
+  if (product?.subcategory) {
+    const hasSubcategory = [...els.bulkPurchaseSubcategory.options].some((option) => option.value === product.subcategory);
+    if (!hasSubcategory) {
+      const option = document.createElement("option");
+      option.value = product.subcategory;
+      option.textContent = product.subcategory;
+      els.bulkPurchaseSubcategory.append(option);
+    }
+    els.bulkPurchaseSubcategory.value = product.subcategory;
+  } else {
+    els.bulkPurchaseSubcategory.value = "all";
+  }
+}
+
 function fillBulkPurchaseDefaults() {
   const product = state.products.find((item) => item.id === els.bulkPurchaseProduct.value);
   if (!product) {
+    syncBulkPurchaseCategoryFields(null);
     renderBulkPurchaseSupplierOptions();
     updateBulkPurchaseMeasureOptions();
     els.bulkPurchaseUnitCost.value = "";
     return;
   }
+  syncBulkPurchaseCategoryFields(product);
   renderBulkPurchaseSupplierOptions(product.supplier || els.bulkPurchaseSupplier.value);
   updateBulkPurchaseMeasureOptions();
   els.bulkPurchaseUnitCost.value = Number(product.cost || 0).toFixed(2);
@@ -2185,6 +2211,7 @@ function addBulkPurchaseItem() {
   els.bulkPurchaseProductSearch.value = "";
   els.bulkPurchaseQuantity.value = "";
   els.bulkPurchaseUnitCost.value = "";
+  syncBulkPurchaseCategoryFields(null);
   closeProductSuggestions("bulkPurchase");
   updateBulkPurchaseMeasureOptions();
   renderBulkPurchaseItems();
@@ -2314,6 +2341,11 @@ async function saveBulkPurchase() {
 
   bulkPurchaseItems = [];
   els.bulkPurchaseNote.value = "";
+  els.bulkPurchaseProduct.value = "";
+  els.bulkPurchaseProductSearch.value = "";
+  els.bulkPurchaseQuantity.value = "";
+  els.bulkPurchaseUnitCost.value = "";
+  syncBulkPurchaseCategoryFields(null);
   renderBulkPurchaseSupplierOptions();
   closeBulkPurchaseModal();
   await loadRemoteData();
