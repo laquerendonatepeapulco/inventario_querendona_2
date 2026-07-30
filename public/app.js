@@ -18,6 +18,7 @@ let currentUser = window.Auth.requireSession();
 let activePanel = "dashboard";
 let bulkPurchaseItems = [];
 let bulkExitItems = [];
+let smartAlertPage = 0;
 let adminAlertPage = 0;
 
 const DEFAULT_SUPPLIERS = ["Proveedor local", "Proveedor externo"];
@@ -85,6 +86,7 @@ const STANDARD_MEASURE_UNITS = [
 const MEAT_MEASURE_UNITS = ["1 kg", "1/2 kg", "1/4 kg"];
 const MEAT_CUSTOM_MEASURE_VALUE = "__custom_meat_measure__";
 const PRODUCT_SUGGESTION_LIMIT = 8;
+const SMART_ALERT_PAGE_SIZE = 5;
 const ADMIN_ALERT_PAGE_SIZE = 5;
 const productSuggestionState = {
   purchase: { products: [], activeIndex: -1 },
@@ -106,6 +108,10 @@ const els = {
   productRows: document.querySelector("#productRows"),
   alertList: document.querySelector("#alertList"),
   smartAlertCount: document.querySelector("#smartAlertCount"),
+  smartAlertPager: document.querySelector("#smartAlertPager"),
+  smartAlertPrev: document.querySelector("#smartAlertPrev"),
+  smartAlertNext: document.querySelector("#smartAlertNext"),
+  smartAlertPageInfo: document.querySelector("#smartAlertPageInfo"),
   dashboardPrimaryGrid: document.querySelector("#dashboardPrimaryGrid"),
   adminAlertSection: document.querySelector("#adminAlertSection"),
   adminAlertList: document.querySelector("#adminAlertList"),
@@ -369,6 +375,8 @@ function bindEvents() {
   document.querySelector("#downloadBackup").addEventListener("click", downloadBackup);
   document.querySelector("#resetDemo").addEventListener("click", resetDemo);
   document.querySelector("#clearMovements").addEventListener("click", clearMovements);
+  els.smartAlertPrev?.addEventListener("click", () => changeSmartAlertPage(-1));
+  els.smartAlertNext?.addEventListener("click", () => changeSmartAlertPage(1));
   els.resolveAllAlerts?.addEventListener("click", resolveAllStockAlerts);
   els.adminAlertPrev?.addEventListener("click", () => changeAdminAlertPage(-1));
   els.adminAlertNext?.addEventListener("click", () => changeAdminAlertPage(1));
@@ -1119,7 +1127,13 @@ function renderAlerts() {
   }
 
   if (smartAlerts.length) {
-    smartAlerts.slice(0, 8).forEach((alert) => {
+    const totalPages = Math.max(1, Math.ceil(smartAlerts.length / SMART_ALERT_PAGE_SIZE));
+    smartAlertPage = Math.min(smartAlertPage, totalPages - 1);
+    const startIndex = smartAlertPage * SMART_ALERT_PAGE_SIZE;
+    const visibleAlerts = smartAlerts.slice(startIndex, startIndex + SMART_ALERT_PAGE_SIZE);
+    updateSmartAlertPager(smartAlerts.length, visibleAlerts.length, startIndex, totalPages);
+
+    visibleAlerts.forEach((alert) => {
       const item = document.createElement("article");
       item.className = "alert-item";
       item.innerHTML = `
@@ -1140,10 +1154,17 @@ function renderAlerts() {
 
   if (!products.length) {
     els.alertList.innerHTML = `<div class="empty-state">Sin alertas por ahora.</div>`;
+    updateSmartAlertPager(0, 0, 0, 1);
     return;
   }
 
-  products.slice(0, 6).forEach((product) => {
+  const totalPages = Math.max(1, Math.ceil(products.length / SMART_ALERT_PAGE_SIZE));
+  smartAlertPage = Math.min(smartAlertPage, totalPages - 1);
+  const startIndex = smartAlertPage * SMART_ALERT_PAGE_SIZE;
+  const visibleProducts = products.slice(startIndex, startIndex + SMART_ALERT_PAGE_SIZE);
+  updateSmartAlertPager(products.length, visibleProducts.length, startIndex, totalPages);
+
+  visibleProducts.forEach((product) => {
     const missing = Math.max(product.minStock * 2 - product.stock, 1);
     const item = document.createElement("article");
     item.className = "alert-item";
@@ -1156,6 +1177,27 @@ function renderAlerts() {
     `;
     els.alertList.append(item);
   });
+}
+
+function updateSmartAlertPager(total, visibleCount, startIndex, totalPages) {
+  if (!els.smartAlertPager) return;
+  const hasPages = total > SMART_ALERT_PAGE_SIZE;
+  els.smartAlertPager.hidden = !hasPages;
+  if (els.smartAlertPrev) els.smartAlertPrev.disabled = smartAlertPage <= 0;
+  if (els.smartAlertNext) els.smartAlertNext.disabled = smartAlertPage >= totalPages - 1;
+  if (els.smartAlertPageInfo) {
+    const endIndex = total ? Math.min(startIndex + visibleCount, total) : 0;
+    els.smartAlertPageInfo.textContent = total ? `${startIndex + 1}-${endIndex} de ${total}` : "0 de 0";
+  }
+}
+
+function changeSmartAlertPage(delta) {
+  const alerts = isAdmin() && state.smartAlerts.length
+    ? state.smartAlerts
+    : state.products.filter((product) => product.stock <= product.minStock);
+  const totalPages = Math.max(1, Math.ceil(alerts.length / SMART_ALERT_PAGE_SIZE));
+  smartAlertPage = Math.min(Math.max(smartAlertPage + delta, 0), totalPages - 1);
+  renderAlerts();
 }
 
 function renderAdminAlerts() {
