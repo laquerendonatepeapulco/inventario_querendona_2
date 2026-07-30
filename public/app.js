@@ -522,6 +522,8 @@ function bindEvents() {
     loadPurchaseReport();
   });
   els.purchaseReportProduct.addEventListener("change", loadPurchaseReport);
+  els.comparisonStart.addEventListener("change", () => handleComparisonWeekDateChange(els.comparisonStart.value));
+  els.comparisonEnd.addEventListener("change", () => handleComparisonWeekDateChange(els.comparisonEnd.value));
   els.expenseStart.addEventListener("change", () => handleExpenseWeekDateChange(els.expenseStart.value));
   els.expenseEnd.addEventListener("change", () => handleExpenseWeekDateChange(els.expenseEnd.value));
   els.expenseCategory.addEventListener("change", loadExpenseControlReport);
@@ -1348,8 +1350,7 @@ function setDefaultReportDates() {
     els.exitEnd.value = today;
   }
   if (els.comparisonStart && els.comparisonEnd) {
-    els.comparisonStart.value = firstDayValue;
-    els.comparisonEnd.value = today;
+    setComparisonWeekRange(now);
   }
   if (els.purchaseStart && els.purchaseEnd) {
     els.purchaseStart.value = firstDayValue;
@@ -1370,7 +1371,7 @@ function parseDateInputValue(value) {
   return new Date(year, month - 1, day);
 }
 
-function expenseWeekRangeForDate(value) {
+function weekRangeForDate(value) {
   const reference = value instanceof Date ? value : parseDateInputValue(value);
   if (!reference || Number.isNaN(reference.getTime())) return null;
 
@@ -1385,9 +1386,27 @@ function expenseWeekRangeForDate(value) {
   };
 }
 
+function setComparisonWeekRange(value) {
+  if (!els.comparisonStart || !els.comparisonEnd) return false;
+  const range = weekRangeForDate(value);
+  if (!range) return false;
+
+  els.comparisonStart.value = range.from;
+  els.comparisonEnd.value = range.to;
+  return true;
+}
+
+function handleComparisonWeekDateChange(value) {
+  if (!setComparisonWeekRange(value)) return;
+  state.comparisonReport = null;
+  if (activePanel === "comparison") {
+    loadComparisonReport();
+  }
+}
+
 function setExpenseWeekRange(value) {
   if (!els.expenseStart || !els.expenseEnd) return false;
-  const range = expenseWeekRangeForDate(value);
+  const range = weekRangeForDate(value);
   if (!range) return false;
 
   els.expenseStart.value = range.from;
@@ -3695,6 +3714,7 @@ async function loadComparisonReport() {
     showToast("Selecciona fecha inicial y final.");
     return;
   }
+  setComparisonWeekRange(els.comparisonStart.value);
 
   const response = await window.Auth.apiFetch(`/api/reports/stock-comparison?${comparisonQueryString()}`);
   const payload = await response.json();
@@ -3782,6 +3802,7 @@ async function downloadComparisonReport() {
     showToast("Selecciona fecha inicial y final.");
     return;
   }
+  setComparisonWeekRange(els.comparisonStart.value);
 
   const response = await window.Auth.apiFetch(`/api/reports/stock-comparison.xlsx?${comparisonQueryString()}`);
   if (!response.ok) {
