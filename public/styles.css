@@ -725,6 +725,8 @@ select,
 .purchase-form input[type="search"],
 .purchase-form select,
 .purchase-form textarea,
+.cash-flow-form input,
+.cash-flow-form textarea,
 .modal > label input,
 .modal textarea {
   min-height: 42px;
@@ -732,7 +734,8 @@ select,
 }
 
 .modal textarea,
-.purchase-form textarea {
+.purchase-form textarea,
+.cash-flow-form textarea {
   min-height: 92px;
   padding-top: 10px;
   resize: vertical;
@@ -980,6 +983,29 @@ tbody tr:hover {
 
 .report-controls button {
   align-self: end;
+}
+
+.cash-flow-form {
+  margin-bottom: 16px;
+}
+
+.cash-flow-form .section-heading {
+  margin-bottom: 14px;
+}
+
+.cash-flow-form .section-heading strong {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-strong);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.cash-flow-table td[data-label="Nota"] {
+  min-width: 180px;
+  max-width: 260px;
+  white-space: normal;
 }
 
 .report-metrics {
@@ -1244,6 +1270,10 @@ tbody tr:hover {
 #purchaseForm .form-grid,
 #exitRegisterForm .form-grid {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(180px, 0.6fr);
+}
+
+#cashFlowForm .form-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 label {
@@ -1647,6 +1677,10 @@ label {
   #purchaseForm .form-grid,
   #exitRegisterForm .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #cashFlowForm .form-grid {
+    grid-template-columns: 1fr;
   }
 
   #purchaseForm .form-grid > label,

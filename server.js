@@ -276,6 +276,27 @@ function purchaseDto(row) {
   };
 }
 
+function dateKeyValue(value) {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
+function cashFlowEntryDto(row) {
+  return {
+    id: row.id,
+    date: row.date_key || dateKeyValue(row.flow_date),
+    cashSales: Number(row.cash_sales || 0),
+    cardSales: Number(row.card_sales || 0),
+    totalSales: Number(row.cash_sales || 0) + Number(row.card_sales || 0),
+    note: row.note || "",
+    createdByName: row.created_by_name || "Sin usuario",
+    updatedByName: row.updated_by_name || row.created_by_name || "Sin usuario",
+    updatedAt: row.updated_at,
+    createdAt: row.created_at
+  };
+}
+
 async function query(text, params = []) {
   return pool.query(text, params);
 }
@@ -1284,6 +1305,37 @@ function parseExpenseControlFilters(req) {
   };
 }
 
+function sanitizeCashFlowEntry(input) {
+  let date = String(input.date || input.flowDate || input.flow_date || "").trim();
+  const cashSales = Number(input.cashSales ?? input.cash_sales ?? 0);
+  const cardSales = Number(input.cardSales ?? input.card_sales ?? 0);
+  const note = String(input.note || "").trim().slice(0, 180);
+  const validDate = /^\d{4}-\d{2}-\d{2}$/;
+
+  if (/^\d{4}-\d{2}-\d{2}T/.test(date)) {
+    date = date.slice(0, 10);
+  }
+
+  if (!validDate.test(date)) {
+    const error = new Error("Captura una fecha valida para el flujo");
+    error.status = 400;
+    throw error;
+  }
+
+  if (!Number.isFinite(cashSales) || cashSales < 0 || !Number.isFinite(cardSales) || cardSales < 0) {
+    const error = new Error("Las ventas deben ser numeros positivos");
+    error.status = 400;
+    throw error;
+  }
+
+  return {
+    date,
+    cashSales: roundedMoney(cashSales),
+    cardSales: roundedMoney(cardSales),
+    note
+  };
+}
+
 function reportCategoryPath(item) {
   if (item.subcategory) return `${item.category || "Sin categoria"} / ${item.subcategory}`;
   return item.category || "Sin categoria";
@@ -1996,6 +2048,220 @@ async function buildExpenseControlWorkbook(report) {
   return workbook;
 }
 
+async function loadCashFlowReport(from, to) {
+  const timeZone = process.env.NOTIFICATION_TIME_ZONE || "America/Mexico_City";
+  const dates = reportDateKeys(from, to);
+  const [entriesResult, expensesResult, openingResult] = await Promise.all([
+    query(
+      `SELECT
+         cash_flow_entries.*,
+         to_char(cash_flow_entries.flow_date, 'YYYY-MM-DD') AS date_key,
+         creator.name AS created_by_name,
+         updater.name AS updated_by_name
+       FROM cash_flow_entries
+       LEFT JOIN users AS creator ON creator.id = cash_flow_entries.created_by
+       LEFT JOIN users AS updater ON updater.id = cash_flow_entries.updated_by
+       WHERE cash_flow_entries.flow_date >= $1::date
+         AND cash_flow_entries.flow_date <= $2::date
+       ORDER BY cash_flow_entries.flow_date ASC`,
+      [from, to]
+    ),
+    query(
+      `SELECT
+         to_char(timezone($3, purchase_entries.created_at)::date, 'YYYY-MM-DD') AS date_key,
+         SUM(purchase_entries.total_cost)::numeric AS total_expenses,
+         COUNT(*)::int AS entries
+       FROM purchase_entries
+       WHERE purchase_entries.created_at >= timezone($3, $1::date::timestamp)
+         AND purchase_entries.created_at < timezone($3, ($2::date + INTERVAL '1 day')::timestamp)
+       GROUP BY to_char(timezone($3, purchase_entries.created_at)::date, 'YYYY-MM-DD')
+       ORDER BY date_key ASC`,
+      [from, to, timeZone]
+    ),
+    query(
+      `WITH first_cash_flow AS (
+         SELECT MIN(flow_date) AS first_date
+         FROM cash_flow_entries
+       )
+       SELECT
+         COALESCE((
+           SELECT SUM(cash_sales + card_sales)
+           FROM cash_flow_entries
+           WHERE flow_date < $1::date
+         ), 0)::numeric AS sales_before,
+         COALESCE((
+           SELECT SUM(total_cost)
+           FROM purchase_entries, first_cash_flow
+           WHERE first_cash_flow.first_date IS NOT NULL
+             AND first_cash_flow.first_date < $1::date
+             AND purchase_entries.created_at >= timezone($2, first_cash_flow.first_date::timestamp)
+             AND purchase_entries.created_at < timezone($2, $1::date::timestamp)
+         ), 0)::numeric AS expenses_before`,
+      [from, timeZone]
+    )
+  ]);
+
+  const entriesByDate = new Map(entriesResult.rows.map((row) => [row.date_key, cashFlowEntryDto(row)]));
+  const expensesByDate = new Map(
+    expensesResult.rows.map((row) => [
+      row.date_key,
+      {
+        totalExpenses: roundedMoney(row.total_expenses),
+        entries: Number(row.entries || 0)
+      }
+    ])
+  );
+
+  const opening = openingResult.rows[0] || {};
+  const openingBalance = roundedMoney(Number(opening.sales_before || 0) - Number(opening.expenses_before || 0));
+  let accumulated = openingBalance;
+  const rows = dates.map((date) => {
+    const entry = entriesByDate.get(date) || {
+      id: null,
+      date,
+      cashSales: 0,
+      cardSales: 0,
+      totalSales: 0,
+      note: "",
+      createdByName: "",
+      updatedByName: "",
+      updatedAt: null,
+      createdAt: null
+    };
+    const expense = expensesByDate.get(date) || { totalExpenses: 0, entries: 0 };
+    const totalSales = roundedMoney(entry.cashSales + entry.cardSales);
+    const dailyFlow = roundedMoney(totalSales - expense.totalExpenses);
+    accumulated = roundedMoney(accumulated + dailyFlow);
+
+    return {
+      ...entry,
+      date,
+      totalSales,
+      expenses: expense.totalExpenses,
+      expenseEntries: expense.entries,
+      dailyFlow,
+      accumulated
+    };
+  });
+
+  const summary = rows.reduce(
+    (acc, item) => {
+      acc.totalCashSales = roundedMoney(acc.totalCashSales + item.cashSales);
+      acc.totalCardSales = roundedMoney(acc.totalCardSales + item.cardSales);
+      acc.totalSales = roundedMoney(acc.totalSales + item.totalSales);
+      acc.totalExpenses = roundedMoney(acc.totalExpenses + item.expenses);
+      acc.netFlow = roundedMoney(acc.netFlow + item.dailyFlow);
+      acc.daysWithSales += item.totalSales > 0 ? 1 : 0;
+      acc.expenseEntries += item.expenseEntries || 0;
+      if (!acc.highestSalesDay || item.totalSales > acc.highestSalesDay.totalSales) {
+        acc.highestSalesDay = { date: item.date, totalSales: item.totalSales };
+      }
+      return acc;
+    },
+    {
+      totalCashSales: 0,
+      totalCardSales: 0,
+      totalSales: 0,
+      totalExpenses: 0,
+      netFlow: 0,
+      daysWithSales: 0,
+      expenseEntries: 0,
+      highestSalesDay: null
+    }
+  );
+
+  return {
+    range: { from, to },
+    openingBalance,
+    endingBalance: rows.length ? rows[rows.length - 1].accumulated : openingBalance,
+    summary,
+    rows
+  };
+}
+
+async function buildCashFlowWorkbook(report) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Inventario La Querendona";
+  workbook.created = new Date();
+  workbook.modified = new Date();
+
+  const sheet = workbook.addWorksheet("Flujo Caja");
+  sheet.properties.defaultRowHeight = 20;
+
+  sheet.mergeCells("A1:H1");
+  sheet.getCell("A1").value = "Flujo de Caja - Inventario La Querendona";
+  sheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
+  sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF156B73" } };
+  sheet.getCell("A1").alignment = { horizontal: "center" };
+
+  sheet.addRow([]);
+  sheet.addRow(["Fecha inicial", report.range.from, "", "Fecha final", report.range.to]);
+  sheet.addRow(["Saldo inicial", report.openingBalance, "", "Saldo final", report.endingBalance]);
+  sheet.addRow(["Venta efectivo", report.summary.totalCashSales, "", "Venta tarjeta", report.summary.totalCardSales]);
+  sheet.addRow(["Ventas totales", report.summary.totalSales, "", "Gastos", report.summary.totalExpenses]);
+  sheet.addRow(["Flujo neto", report.summary.netFlow, "", "Dias con venta", report.summary.daysWithSales]);
+  sheet.addRow([]);
+
+  const header = sheet.addRow([
+    "Fecha",
+    "Venta efectivo",
+    "Venta tarjeta",
+    "Venta total",
+    "Gastos",
+    "Flujo del dia",
+    "Flujo acumulado",
+    "Nota"
+  ]);
+  header.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF17202A" } };
+  header.alignment = { horizontal: "center" };
+
+  report.rows.forEach((item) => {
+    sheet.addRow([
+      item.date,
+      item.cashSales,
+      item.cardSales,
+      item.totalSales,
+      item.expenses,
+      item.dailyFlow,
+      item.accumulated,
+      item.note
+    ]);
+  });
+
+  const totalRow = sheet.addRow([
+    "Total",
+    report.summary.totalCashSales,
+    report.summary.totalCardSales,
+    report.summary.totalSales,
+    report.summary.totalExpenses,
+    report.summary.netFlow,
+    report.endingBalance,
+    ""
+  ]);
+  totalRow.font = { bold: true };
+  totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDF4D5" } };
+
+  sheet.getColumn(1).width = 14;
+  sheet.getColumn(2).width = 16;
+  sheet.getColumn(3).width = 16;
+  sheet.getColumn(4).width = 16;
+  sheet.getColumn(5).width = 16;
+  sheet.getColumn(6).width = 16;
+  sheet.getColumn(7).width = 18;
+  sheet.getColumn(8).width = 28;
+  for (let index = 2; index <= 7; index += 1) {
+    sheet.getColumn(index).numFmt = '"$"#,##0.00';
+  }
+  sheet.views = [{ state: "frozen", ySplit: header.number }];
+  sheet.autoFilter = {
+    from: { row: header.number, column: 1 },
+    to: { row: Math.max(header.number, header.number + report.rows.length), column: 8 }
+  };
+
+  return workbook;
+}
+
 
 async function buildProductsWorkbook(products, category = "Todas") {
   const workbook = new ExcelJS.Workbook();
@@ -2700,6 +2966,24 @@ async function ensureSchema() {
   await query(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS subcategory TEXT NOT NULL DEFAULT ''`);
   await query(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS measure_unit TEXT NOT NULL DEFAULT 'Pieza'`);
   await query(`
+    CREATE TABLE IF NOT EXISTS cash_flow_entries (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      flow_date DATE NOT NULL UNIQUE,
+      cash_sales NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (cash_sales >= 0),
+      card_sales NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (card_sales >= 0),
+      note TEXT NOT NULL DEFAULT '',
+      created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
+  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS cash_sales NUMERIC(12, 2) NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS card_sales NUMERIC(12, 2) NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''`);
+  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
+  await query(`
     CREATE TABLE IF NOT EXISTS stock_alerts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       product_id UUID REFERENCES products(id) ON DELETE SET NULL,
@@ -2759,6 +3043,7 @@ async function ensureSchema() {
   await query(`CREATE INDEX IF NOT EXISTS idx_movements_type ON movements(movement_type, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_purchase_entries_created_at ON purchase_entries(created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_purchase_entries_supplier ON purchase_entries(supplier)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_cash_flow_entries_flow_date ON cash_flow_entries(flow_date DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_stock_alerts_status ON stock_alerts(status, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_shift_exit_alert_runs_created_at ON shift_exit_alert_runs(created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_shift_exit_completion_notices_created_at ON shift_exit_completion_notices(created_at DESC)`);
@@ -4149,6 +4434,65 @@ app.get("/api/reports/expense-control.xlsx", authRequired, adminRequired, async 
   }
 });
 
+app.get("/api/cash-flow", authRequired, adminRequired, async (req, res, next) => {
+  try {
+    const { from, to } = parseReportRange(req);
+    const report = await loadCashFlowReport(from, to);
+    res.json(report);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/cash-flow", authRequired, adminRequired, async (req, res, next) => {
+  try {
+    const entry = sanitizeCashFlowEntry(req.body);
+    const result = await query(
+      `WITH saved AS (
+         INSERT INTO cash_flow_entries (flow_date, cash_sales, card_sales, note, created_by, updated_by)
+         VALUES ($1::date, $2, $3, $4, $5, $5)
+         ON CONFLICT (flow_date)
+         DO UPDATE SET
+           cash_sales = EXCLUDED.cash_sales,
+           card_sales = EXCLUDED.card_sales,
+           note = EXCLUDED.note,
+           updated_by = EXCLUDED.updated_by,
+           updated_at = now()
+         RETURNING *
+       )
+       SELECT
+         saved.*,
+         to_char(saved.flow_date, 'YYYY-MM-DD') AS date_key,
+         creator.name AS created_by_name,
+         updater.name AS updated_by_name
+       FROM saved
+       LEFT JOIN users AS creator ON creator.id = saved.created_by
+       LEFT JOIN users AS updater ON updater.id = saved.updated_by`,
+      [entry.date, entry.cashSales, entry.cardSales, entry.note, req.user.id]
+    );
+
+    res.status(201).json({ entry: cashFlowEntryDto(result.rows[0]) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/cash-flow.xlsx", authRequired, adminRequired, async (req, res, next) => {
+  try {
+    const { from, to } = parseReportRange(req);
+    const report = await loadCashFlowReport(from, to);
+    const workbook = await buildCashFlowWorkbook(report);
+    const filename = `flujo-caja-${from}-a-${to}.xlsx`;
+
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/reports/profit", authRequired, adminRequired, async (req, res, next) => {
   try {
     const { from, to } = parseReportRange(req);
@@ -4247,20 +4591,29 @@ app.delete("/api/movements", authRequired, adminRequired, async (req, res, next)
 
 app.get("/api/export", authRequired, adminRequired, async (req, res, next) => {
   try {
-    const [products, movements, alerts, purchases] = await Promise.all([
+    const [products, movements, alerts, purchases, cashFlowEntries] = await Promise.all([
       query(`SELECT * FROM products ORDER BY name ASC`),
       query(`SELECT * FROM movements ORDER BY created_at DESC`),
       query(`SELECT * FROM stock_alerts ORDER BY created_at DESC`),
       query(`SELECT purchase_entries.*, users.name AS created_by_name
              FROM purchase_entries
              LEFT JOIN users ON users.id = purchase_entries.created_by
-             ORDER BY purchase_entries.created_at DESC`)
+             ORDER BY purchase_entries.created_at DESC`),
+      query(`SELECT cash_flow_entries.*,
+                    to_char(cash_flow_entries.flow_date, 'YYYY-MM-DD') AS date_key,
+                    creator.name AS created_by_name,
+                    updater.name AS updated_by_name
+             FROM cash_flow_entries
+             LEFT JOIN users AS creator ON creator.id = cash_flow_entries.created_by
+             LEFT JOIN users AS updater ON updater.id = cash_flow_entries.updated_by
+             ORDER BY cash_flow_entries.flow_date DESC`)
     ]);
     res.json({
       products: products.rows.map(productDto),
       movements: movements.rows.map(movementDto),
       alerts: alerts.rows.map(stockAlertDto),
-      purchases: purchases.rows.map(purchaseDto)
+      purchases: purchases.rows.map(purchaseDto),
+      cashFlowEntries: cashFlowEntries.rows.map(cashFlowEntryDto)
     });
   } catch (error) {
     next(error);
@@ -4270,10 +4623,12 @@ app.get("/api/export", authRequired, adminRequired, async (req, res, next) => {
 app.post("/api/import", authRequired, adminRequired, async (req, res, next) => {
   const products = Array.isArray(req.body.products) ? req.body.products : [];
   const purchases = Array.isArray(req.body.purchases) ? req.body.purchases : [];
+  const cashFlowEntries = Array.isArray(req.body.cashFlowEntries) ? req.body.cashFlowEntries : [];
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     await client.query(`DELETE FROM stock_alerts`);
+    await client.query(`DELETE FROM cash_flow_entries`);
     await client.query(`DELETE FROM purchase_entries`);
     await client.query(`DELETE FROM movements`);
     await client.query(`DELETE FROM products`);
@@ -4296,8 +4651,28 @@ app.post("/api/import", authRequired, adminRequired, async (req, res, next) => {
         sanitizePurchaseBackup(item, productIdsBySku.get(sku) || null)
       );
     }
+    for (const item of cashFlowEntries) {
+      const entry = sanitizeCashFlowEntry(item);
+      await client.query(
+        `INSERT INTO cash_flow_entries (flow_date, cash_sales, card_sales, note, created_at, updated_at)
+         VALUES ($1::date, $2, $3, $4, COALESCE($5::timestamptz, now()), COALESCE($6::timestamptz, now()))
+         ON CONFLICT (flow_date)
+         DO UPDATE SET cash_sales = EXCLUDED.cash_sales,
+                       card_sales = EXCLUDED.card_sales,
+                       note = EXCLUDED.note,
+                       updated_at = EXCLUDED.updated_at`,
+        [
+          entry.date,
+          entry.cashSales,
+          entry.cardSales,
+          entry.note,
+          item.createdAt || item.created_at || null,
+          item.updatedAt || item.updated_at || null
+        ]
+      );
+    }
     await client.query("COMMIT");
-    res.json({ imported: products.length, purchases: purchases.length });
+    res.json({ imported: products.length, purchases: purchases.length, cashFlowEntries: cashFlowEntries.length });
   } catch (error) {
     await client.query("ROLLBACK");
     next(error);
@@ -4311,6 +4686,7 @@ app.post("/api/reset-demo", authRequired, adminRequired, async (req, res, next) 
   try {
     await client.query("BEGIN");
     await client.query(`DELETE FROM stock_alerts`);
+    await client.query(`DELETE FROM cash_flow_entries`);
     await client.query(`DELETE FROM purchase_entries`);
     await client.query(`DELETE FROM movements`);
     await client.query(`DELETE FROM products`);
