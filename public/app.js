@@ -321,6 +321,25 @@ async function init() {
   await loadRemoteData();
   render();
   renderSession();
+  const initialPanel = panelFromLocationHash();
+  if (initialPanel) switchPanel(initialPanel);
+}
+
+function panelFromLocationHash() {
+  const panel = window.location.hash.replace("#", "");
+  const allowedPanels = [
+    "dashboard",
+    "products",
+    "entries",
+    "exits",
+    "expenseControl",
+    "comparison",
+    "movements",
+    "reports",
+    "profit",
+    "settings"
+  ];
+  return allowedPanels.includes(panel) ? panel : "";
 }
 
 async function loadRemoteData() {

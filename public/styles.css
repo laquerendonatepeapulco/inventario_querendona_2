@@ -310,6 +310,52 @@ label {
   border-color: var(--line);
 }
 
+.cash-flow-page .nav-page-link .icon {
+  font-size: 0;
+}
+
+.cash-flow-page .nav-page-link .icon::before {
+  font-size: 0.95rem;
+}
+
+.cash-flow-page .nav-page-link[href*="dashboard"] .icon::before {
+  content: "\2302";
+}
+
+.cash-flow-page .nav-page-link[href*="products"] .icon::before {
+  content: "\25A6";
+}
+
+.cash-flow-page .nav-page-link[href*="entries"] .icon::before {
+  content: "+";
+}
+
+.cash-flow-page .nav-page-link[href*="exits"] .icon::before {
+  content: "-";
+}
+
+.cash-flow-page .nav-page-link[href*="expenseControl"] .icon::before,
+.cash-flow-page .nav-page-link[href*="flujo-caja"] .icon::before,
+.cash-flow-page .nav-page-link[href*="profit"] .icon::before {
+  content: "$";
+}
+
+.cash-flow-page .nav-page-link[href*="comparison"] .icon::before {
+  content: "\224D";
+}
+
+.cash-flow-page .nav-page-link[href*="movements"] .icon::before {
+  content: "\2195";
+}
+
+.cash-flow-page .nav-page-link[href*="reports"] .icon::before {
+  content: "\25A4";
+}
+
+.cash-flow-page .nav-page-link[href*="settings"] .icon::before {
+  content: "\2699";
+}
+
 .icon {
   display: grid;
   place-items: center;

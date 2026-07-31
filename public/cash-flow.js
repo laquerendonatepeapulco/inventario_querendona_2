@@ -24,6 +24,7 @@ const els = {
   mobileCurrentUserRole: document.querySelector("#mobileCurrentUserRole"),
   logoutButtons: document.querySelectorAll("#logoutButton, #mobileLogoutButton"),
   themeButtons: document.querySelectorAll("#themeToggle, #mobileThemeToggle"),
+  sectionSelect: document.querySelector("#cashFlowNavSelect"),
   form: document.querySelector("#cashFlowForm"),
   date: document.querySelector("#cashFlowDate"),
   cashSales: document.querySelector("#cashFlowCashSales"),
@@ -70,6 +71,7 @@ async function init() {
 function bindEvents() {
   els.logoutButtons.forEach((button) => button.addEventListener("click", logout));
   els.themeButtons.forEach((button) => button.addEventListener("click", toggleTheme));
+  els.sectionSelect.addEventListener("change", handleSectionChange);
   els.form.addEventListener("submit", saveCashFlowEntry);
   els.clearForm.addEventListener("click", resetCashFlowForm);
   els.cashSales.addEventListener("input", updateEntryTotal);
@@ -78,6 +80,12 @@ function bindEvents() {
   els.end.addEventListener("change", () => handleWeekDateChange(els.end.value));
   els.loadReport.addEventListener("click", loadCashFlowReport);
   els.downloadReports.forEach((button) => button.addEventListener("click", downloadCashFlowReport));
+}
+
+function handleSectionChange() {
+  const panel = els.sectionSelect.value;
+  if (panel === "cashFlow") return;
+  window.location.href = `index.html#${panel}`;
 }
 
 function renderSession() {

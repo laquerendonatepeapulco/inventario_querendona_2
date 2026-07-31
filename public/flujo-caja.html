@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flujo de Caja - La Querendona</title>
     <link rel="icon" href="img/logo_pestaÃ±a.png" type="image/png">
-    <link rel="stylesheet" href="styles.css?v=20260731-2" />
+    <link rel="stylesheet" href="styles.css?v=20260731-3" />
   </head>
   <body class="cash-flow-page">
     <div class="app-shell">
@@ -38,15 +38,67 @@
         </div>
 
         <nav class="nav-list">
-          <a class="nav-page-link" href="index.html">
+          <a class="nav-page-link" href="index.html#dashboard">
             <span class="icon">âŒ‚</span>
-            Inventario
+            Panel
+          </a>
+          <a class="nav-page-link" href="index.html#products">
+            <span class="icon">â–¦</span>
+            Productos
+          </a>
+          <a class="nav-page-link" href="index.html#entries">
+            <span class="icon">ï¼‹</span>
+            Entradas
+          </a>
+          <a class="nav-page-link" href="index.html#exits">
+            <span class="icon">âˆ’</span>
+            Salidas
+          </a>
+          <a class="nav-page-link" href="index.html#expenseControl">
+            <span class="icon">$</span>
+            Control de Gastos
           </a>
           <a class="nav-page-link active" href="flujo-caja.html" aria-current="page">
             <span class="icon">$</span>
             Flujo de Caja
           </a>
+          <a class="nav-page-link" href="index.html#comparison">
+            <span class="icon">â‰</span>
+            Comparativa
+          </a>
+          <a class="nav-page-link" href="index.html#movements">
+            <span class="icon">â†•</span>
+            Movimientos
+          </a>
+          <a class="nav-page-link" href="index.html#reports">
+            <span class="icon">â–¤</span>
+            Reportes
+          </a>
+          <a class="nav-page-link" href="index.html#profit">
+            <span class="icon">$</span>
+            Utilidad
+          </a>
+          <a class="nav-page-link" href="index.html#settings">
+            <span class="icon">âš™</span>
+            Ajustes
+          </a>
         </nav>
+        <label class="mobile-nav-control" for="cashFlowNavSelect">
+          <span>Seccion</span>
+          <select id="cashFlowNavSelect" aria-label="Cambiar seccion">
+            <option value="dashboard">Panel</option>
+            <option value="products">Productos</option>
+            <option value="entries">Entradas</option>
+            <option value="exits">Salidas</option>
+            <option value="expenseControl">Control de Gastos</option>
+            <option value="cashFlow" selected>Flujo de Caja</option>
+            <option value="comparison">Comparativa</option>
+            <option value="movements">Movimientos</option>
+            <option value="reports">Reportes</option>
+            <option value="profit">Utilidad</option>
+            <option value="settings">Ajustes</option>
+          </select>
+        </label>
       </aside>
 
       <main class="main">
@@ -157,7 +209,7 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <script src="auth.js?v=20260731-2"></script>
-    <script src="cash-flow.js?v=20260731-2"></script>
+    <script src="auth.js?v=20260731-3"></script>
+    <script src="cash-flow.js?v=20260731-3"></script>
   </body>
 </html>
