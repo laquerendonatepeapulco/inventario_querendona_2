@@ -76,8 +76,8 @@ function bindEvents() {
   els.clearForm.addEventListener("click", resetCashFlowForm);
   els.cashSales.addEventListener("input", updateEntryTotal);
   els.cardSales.addEventListener("input", updateEntryTotal);
-  els.start.addEventListener("change", () => handleWeekDateChange(els.start.value));
-  els.end.addEventListener("change", () => handleWeekDateChange(els.end.value));
+  els.start.addEventListener("change", handleManualRangeChange);
+  els.end.addEventListener("change", handleManualRangeChange);
   els.loadReport.addEventListener("click", loadCashFlowReport);
   els.downloadReports.forEach((button) => button.addEventListener("click", downloadCashFlowReport));
 }
@@ -138,10 +138,9 @@ function setWeekRange(value) {
   return true;
 }
 
-function handleWeekDateChange(value) {
-  if (!setWeekRange(value)) return;
+function handleManualRangeChange() {
   cashFlowReport = null;
-  loadCashFlowReport();
+  renderCashFlowReport();
 }
 
 function cashFlowQueryString() {
@@ -204,18 +203,13 @@ async function saveCashFlowEntry(event) {
     return;
   }
 
-  setWeekRange(payload.date);
   cashFlowReport = null;
   await loadCashFlowReport();
   showToast("Ventas guardadas en flujo de caja.");
 }
 
 async function loadCashFlowReport() {
-  if (!els.start.value || !els.end.value) {
-    showToast("Selecciona fecha inicial y final.");
-    return;
-  }
-  setWeekRange(els.start.value);
+  if (!validateReportRange()) return;
 
   const response = await window.Auth.apiFetch(`/api/cash-flow?${cashFlowQueryString()}`);
   const payload = await response.json();
@@ -278,11 +272,7 @@ function renderCashFlowReport() {
 }
 
 async function downloadCashFlowReport() {
-  if (!els.start.value || !els.end.value) {
-    showToast("Selecciona fecha inicial y final.");
-    return;
-  }
-  setWeekRange(els.start.value);
+  if (!validateReportRange()) return;
 
   const response = await window.Auth.apiFetch(`/api/cash-flow.xlsx?${cashFlowQueryString()}`);
   if (!response.ok) {
@@ -299,6 +289,20 @@ async function downloadCashFlowReport() {
   anchor.click();
   URL.revokeObjectURL(url);
   showToast("Flujo de caja descargado.");
+}
+
+function validateReportRange() {
+  if (!els.start.value || !els.end.value) {
+    showToast("Selecciona fecha inicial y final.");
+    return false;
+  }
+
+  if (els.start.value > els.end.value) {
+    showToast("La fecha inicial no puede ser mayor a la fecha final.");
+    return false;
+  }
+
+  return true;
 }
 
 async function logout() {
