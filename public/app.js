@@ -8,7 +8,6 @@ let state = {
   purchaseReport: null,
   comparisonReport: null,
   expenseControlReport: null,
-  cashFlowReport: null,
   profitReport: null,
   stockAlerts: [],
   smartAlerts: [],
@@ -167,20 +166,6 @@ const els = {
   expenseTopDayLabel: document.querySelector("#expenseTopDayLabel"),
   expenseControlHead: document.querySelector("#expenseControlHead"),
   expenseControlRows: document.querySelector("#expenseControlRows"),
-  cashFlowForm: document.querySelector("#cashFlowForm"),
-  cashFlowDate: document.querySelector("#cashFlowDate"),
-  cashFlowCashSales: document.querySelector("#cashFlowCashSales"),
-  cashFlowCardSales: document.querySelector("#cashFlowCardSales"),
-  cashFlowNote: document.querySelector("#cashFlowNote"),
-  cashFlowEntryTotal: document.querySelector("#cashFlowEntryTotal"),
-  cashFlowStart: document.querySelector("#cashFlowStart"),
-  cashFlowEnd: document.querySelector("#cashFlowEnd"),
-  cashFlowTotalSales: document.querySelector("#cashFlowTotalSales"),
-  cashFlowTotalExpenses: document.querySelector("#cashFlowTotalExpenses"),
-  cashFlowNet: document.querySelector("#cashFlowNet"),
-  cashFlowEndingBalance: document.querySelector("#cashFlowEndingBalance"),
-  cashFlowOpeningBalance: document.querySelector("#cashFlowOpeningBalance"),
-  cashFlowRows: document.querySelector("#cashFlowRows"),
   purchaseForm: document.querySelector("#purchaseForm"),
   purchaseCategory: document.querySelector("#purchaseCategory"),
   purchaseSubcategory: document.querySelector("#purchaseSubcategory"),
@@ -369,7 +354,13 @@ async function safeJsonPayload(response) {
 
 function bindEvents() {
   els.navItems.forEach((item) => {
-    item.addEventListener("click", () => switchPanel(item.dataset.panel));
+    item.addEventListener("click", () => {
+      if (item.dataset.page) {
+        window.location.href = item.dataset.page;
+        return;
+      }
+      switchPanel(item.dataset.panel);
+    });
   });
   els.mobileNavSelect.addEventListener("change", () => switchPanel(els.mobileNavSelect.value));
 
@@ -412,8 +403,6 @@ function bindEvents() {
   document.querySelector("#downloadComparisonReport").addEventListener("click", downloadComparisonReport);
   document.querySelector("#loadExpenseControlReport").addEventListener("click", loadExpenseControlReport);
   document.querySelector("#downloadExpenseControlReport").addEventListener("click", downloadExpenseControlReport);
-  document.querySelector("#loadCashFlowReport").addEventListener("click", loadCashFlowReport);
-  document.querySelector("#downloadCashFlowReport").addEventListener("click", downloadCashFlowReport);
   document.querySelector("#loadPurchaseReport").addEventListener("click", loadPurchaseReport);
   document.querySelector("#downloadPurchaseReport").addEventListener("click", downloadPurchaseReport);
   document.querySelector("#openBulkPurchaseModal").addEventListener("click", openBulkPurchaseModal);
@@ -548,12 +537,6 @@ function bindEvents() {
   els.expenseStart.addEventListener("change", () => handleExpenseWeekDateChange(els.expenseStart.value));
   els.expenseEnd.addEventListener("change", () => handleExpenseWeekDateChange(els.expenseEnd.value));
   els.expenseCategory.addEventListener("change", loadExpenseControlReport);
-  els.cashFlowForm.addEventListener("submit", saveCashFlowEntry);
-  document.querySelector("#clearCashFlowForm").addEventListener("click", resetCashFlowForm);
-  els.cashFlowCashSales.addEventListener("input", updateCashFlowEntryTotal);
-  els.cashFlowCardSales.addEventListener("input", updateCashFlowEntryTotal);
-  els.cashFlowStart.addEventListener("change", () => handleCashFlowWeekDateChange(els.cashFlowStart.value));
-  els.cashFlowEnd.addEventListener("change", () => handleCashFlowWeekDateChange(els.cashFlowEnd.value));
   els.purchaseQuantity.addEventListener("input", updatePurchaseTotal);
   els.purchaseUnitCost.addEventListener("input", updatePurchaseTotal);
   els.exitRegisterQuantity.addEventListener("input", updateExitStockPreview);
@@ -738,16 +721,6 @@ if (!isAdmin()) {
     "#downloadProfitReport",
     "#loadExpenseControlReport",
     "#downloadExpenseControlReport",
-    "#loadCashFlowReport",
-    "#downloadCashFlowReport",
-    "#cashFlowDate",
-    "#cashFlowCashSales",
-    "#cashFlowCardSales",
-    "#cashFlowNote",
-    "#clearCashFlowForm",
-    "#saveCashFlowEntry",
-    "#cashFlowStart",
-    "#cashFlowEnd",
     "#reportStart",
     "#reportEnd",
     "#profitStart",
@@ -872,6 +845,10 @@ function renderResetPasswordUsers() {
 }
 
 function switchPanel(panel) {
+  if (panel === "cashFlowPage") {
+    window.location.href = "flujo-caja.html";
+    return;
+  }
 
   if (!isAdmin()) {
     const allowedPanels = ["entries", "exits"];
@@ -908,7 +885,6 @@ function switchPanel(panel) {
   if (panel === "exits" && canManageStock() && !state.exitReport) loadExitReport();
   if (panel === "comparison" && canManageStock() && !state.comparisonReport) loadComparisonReport();
   if (panel === "expenseControl" && isAdmin() && !state.expenseControlReport) loadExpenseControlReport();
-  if (panel === "cashFlow" && isAdmin() && !state.cashFlowReport) loadCashFlowReport();
   if (panel === "profit" && isAdmin() && !state.profitReport) loadProfitReport();
 }
 
@@ -1399,12 +1375,6 @@ function setDefaultReportDates() {
   if (els.expenseStart && els.expenseEnd) {
     setExpenseWeekRange(now);
   }
-  if (els.cashFlowStart && els.cashFlowEnd) {
-    setCashFlowWeekRange(now);
-  }
-  if (els.cashFlowDate) {
-    els.cashFlowDate.value = today;
-  }
 }
 
 function parseDateInputValue(value) {
@@ -1500,24 +1470,6 @@ function handleExpenseWeekDateChange(value) {
   }
 }
 
-function setCashFlowWeekRange(value) {
-  if (!els.cashFlowStart || !els.cashFlowEnd) return false;
-  const range = weekRangeForDate(value);
-  if (!range) return false;
-
-  els.cashFlowStart.value = range.from;
-  els.cashFlowEnd.value = range.to;
-  return true;
-}
-
-function handleCashFlowWeekDateChange(value) {
-  if (!setCashFlowWeekRange(value)) return;
-  state.cashFlowReport = null;
-  if (activePanel === "cashFlow") {
-    loadCashFlowReport();
-  }
-}
-
 function reportQueryString() {
   const params = new URLSearchParams({
     from: els.reportStart.value,
@@ -1572,14 +1524,6 @@ function expenseControlQueryString() {
   if (els.expenseCategory?.value && els.expenseCategory.value !== "all") {
     params.set("category", els.expenseCategory.value);
   }
-  return params.toString();
-}
-
-function cashFlowQueryString() {
-  const params = new URLSearchParams({
-    from: els.cashFlowStart.value,
-    to: els.cashFlowEnd.value
-  });
   return params.toString();
 }
 
@@ -2572,7 +2516,6 @@ async function saveBulkPurchase() {
   state.exitReport = null;
   state.comparisonReport = null;
   state.expenseControlReport = null;
-  state.cashFlowReport = null;
   render();
   showToast(`Entrada grande registrada: ${payload.summary?.totalEntries || 0} productos.`);
 }
@@ -3176,7 +3119,6 @@ async function saveEditedPurchase(event) {
   state.comparisonReport = null;
   state.profitReport = null;
   state.expenseControlReport = null;
-  state.cashFlowReport = null;
   await loadRemoteData();
   await loadPurchaseReport();
   render();
@@ -3207,7 +3149,6 @@ async function deleteEditedPurchase() {
   state.comparisonReport = null;
   state.profitReport = null;
   state.expenseControlReport = null;
-  state.cashFlowReport = null;
   await loadRemoteData();
   await loadPurchaseReport();
   render();
@@ -3274,7 +3215,6 @@ async function savePurchaseFromForm(event) {
   state.exitReport = null;
   state.comparisonReport = null;
   state.expenseControlReport = null;
-  state.cashFlowReport = null;
   render();
   showToast("Entrada registrada y stock actualizado.");
   switchPanel("entries");
@@ -4061,172 +4001,6 @@ async function downloadExpenseControlReport() {
   showToast("Control de gastos descargado.");
 }
 
-function updateCashFlowEntryTotal() {
-  if (!els.cashFlowEntryTotal) return;
-  const cash = Number(els.cashFlowCashSales.value || 0);
-  const card = Number(els.cashFlowCardSales.value || 0);
-  els.cashFlowEntryTotal.textContent = formatter.format(cash + card);
-}
-
-function resetCashFlowForm() {
-  if (!els.cashFlowForm) return;
-  els.cashFlowForm.reset();
-  els.cashFlowDate.value = formatDateInput(new Date());
-  updateCashFlowEntryTotal();
-}
-
-function fillCashFlowForm(item) {
-  els.cashFlowDate.value = item.date;
-  els.cashFlowCashSales.value = item.cashSales || "";
-  els.cashFlowCardSales.value = item.cardSales || "";
-  els.cashFlowNote.value = item.note || "";
-  updateCashFlowEntryTotal();
-  els.cashFlowCashSales.focus();
-}
-
-async function saveCashFlowEntry(event) {
-  event.preventDefault();
-  if (!requireAdmin()) return;
-
-  const payload = {
-    date: els.cashFlowDate.value,
-    cashSales: Number(els.cashFlowCashSales.value || 0),
-    cardSales: Number(els.cashFlowCardSales.value || 0),
-    note: els.cashFlowNote.value.trim()
-  };
-
-  if (!payload.date) {
-    showToast("Selecciona la fecha de venta.");
-    return;
-  }
-
-  if (!Number.isFinite(payload.cashSales) || payload.cashSales < 0 || !Number.isFinite(payload.cardSales) || payload.cardSales < 0) {
-    showToast("Captura ventas validas.");
-    return;
-  }
-
-  const response = await window.Auth.apiFetch("/api/cash-flow", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
-  const result = await response.json();
-  if (!response.ok) {
-    showToast(result.error || "No se pudo guardar el flujo de caja.");
-    return;
-  }
-
-  setCashFlowWeekRange(payload.date);
-  state.cashFlowReport = null;
-  await loadCashFlowReport();
-  showToast("Ventas guardadas en flujo de caja.");
-}
-
-async function loadCashFlowReport() {
-  if (!requireAdmin()) return;
-  if (!els.cashFlowStart.value || !els.cashFlowEnd.value) {
-    showToast("Selecciona fecha inicial y final.");
-    return;
-  }
-  setCashFlowWeekRange(els.cashFlowStart.value);
-
-  const response = await window.Auth.apiFetch(`/api/cash-flow?${cashFlowQueryString()}`);
-  const payload = await response.json();
-  if (!response.ok) {
-    showToast(payload.error || "No se pudo generar el flujo de caja.");
-    return;
-  }
-
-  state.cashFlowReport = payload;
-  renderCashFlowReport();
-}
-
-function renderCashFlowReport() {
-  if (!els.cashFlowRows) return;
-  const report = state.cashFlowReport;
-  const summary = report?.summary || { totalSales: 0, totalExpenses: 0, netFlow: 0 };
-
-  els.cashFlowTotalSales.textContent = formatter.format(summary.totalSales || 0);
-  els.cashFlowTotalExpenses.textContent = formatter.format(summary.totalExpenses || 0);
-  els.cashFlowNet.textContent = formatter.format(summary.netFlow || 0);
-  els.cashFlowEndingBalance.textContent = formatter.format(report?.endingBalance || 0);
-  els.cashFlowOpeningBalance.textContent = `Inicial: ${formatter.format(report?.openingBalance || 0)}`;
-  els.cashFlowRows.innerHTML = "";
-
-  if (!isAdmin()) {
-    els.cashFlowRows.innerHTML = `
-      <tr>
-        <td colspan="9">
-          <div class="empty-state">Solo administradores pueden consultar el flujo de caja.</div>
-        </td>
-      </tr>`;
-    return;
-  }
-
-  if (!report) {
-    els.cashFlowRows.innerHTML = `
-      <tr>
-        <td colspan="9">
-          <div class="empty-state">Genera el flujo para ver ventas, gastos y saldo acumulado.</div>
-        </td>
-      </tr>`;
-    return;
-  }
-
-  report.rows.forEach((item) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td class="expense-concept-column" data-label="Fecha">
-        <strong>${escapeHtml(formatReportDateLabel(item.date))}</strong>
-        <small>${item.expenseEntries || 0} gastos</small>
-      </td>
-      <td data-label="Venta efectivo">${formatter.format(item.cashSales)}</td>
-      <td data-label="Venta tarjeta">${formatter.format(item.cardSales)}</td>
-      <td data-label="Venta total">${formatter.format(item.totalSales)}</td>
-      <td data-label="Gastos">${formatter.format(item.expenses)}</td>
-      <td data-label="Flujo dia">${formatter.format(item.dailyFlow)}</td>
-      <td data-label="Acumulado">${formatter.format(item.accumulated)}</td>
-      <td data-label="Nota">${escapeHtml(item.note || "Sin nota")}</td>
-      <td data-label="Acciones">
-        <button class="ghost-button table-edit-button" type="button" data-action="edit-cash-flow" data-date="${escapeHtml(item.date)}">Editar</button>
-      </td>
-    `;
-    els.cashFlowRows.append(row);
-  });
-
-  els.cashFlowRows.querySelectorAll("[data-action='edit-cash-flow']").forEach((button) => {
-    button.addEventListener("click", () => {
-      const item = state.cashFlowReport?.rows.find((row) => row.date === button.dataset.date);
-      if (item) fillCashFlowForm(item);
-    });
-  });
-}
-
-async function downloadCashFlowReport() {
-  if (!requireAdmin()) return;
-  if (!els.cashFlowStart.value || !els.cashFlowEnd.value) {
-    showToast("Selecciona fecha inicial y final.");
-    return;
-  }
-  setCashFlowWeekRange(els.cashFlowStart.value);
-
-  const response = await window.Auth.apiFetch(`/api/cash-flow.xlsx?${cashFlowQueryString()}`);
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    showToast(payload.error || "No se pudo descargar el flujo de caja.");
-    return;
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `flujo-caja-${els.cashFlowStart.value}-a-${els.cashFlowEnd.value}.xlsx`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-  showToast("Flujo de caja descargado.");
-}
-
 function animateChart() {
   if (!els.chart) return;
   drawCategoryChart();
@@ -4676,7 +4450,6 @@ async function resetDemo() {
   state.purchaseReport = null;
   state.comparisonReport = null;
   state.expenseControlReport = null;
-  state.cashFlowReport = null;
   state.profitReport = null;
   await loadRemoteData();
   render();
@@ -4734,7 +4507,6 @@ function importBackup(event) {
       state.purchaseReport = null;
       state.comparisonReport = null;
       state.expenseControlReport = null;
-      state.cashFlowReport = null;
       state.profitReport = null;
       await loadRemoteData();
       render();

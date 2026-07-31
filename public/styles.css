@@ -279,7 +279,8 @@ label {
   display: none;
 }
 
-.nav-item {
+.nav-item,
+.nav-page-link {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -291,17 +292,21 @@ label {
   background: transparent;
   color: var(--muted);
   text-align: left;
+  text-decoration: none;
   transition: transform 180ms ease, background 180ms ease, color 180ms ease;
 }
 
 .nav-item:hover,
-.nav-item.active {
+.nav-page-link:hover,
+.nav-item.active,
+.nav-page-link.active {
   transform: translateX(3px);
   background: var(--panel-strong);
   color: var(--text);
 }
 
-.nav-item.active {
+.nav-item.active,
+.nav-page-link.active {
   border-color: var(--line);
 }
 
@@ -389,6 +394,7 @@ h3 {
 .form-grid input,
 .modal > label input,
 .modal textarea,
+.cash-flow-form textarea,
 .toolbar-actions input[type="search"],
 select,
 #importFile {
@@ -435,6 +441,13 @@ select,
 
 .ghost-button.danger {
   color: var(--red);
+}
+
+.home-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .modal-actions .danger-action {
