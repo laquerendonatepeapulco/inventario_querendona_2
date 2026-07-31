@@ -2114,7 +2114,7 @@ async function loadCashFlowReport(from, to) {
 
   const opening = openingResult.rows[0] || {};
   const openingBalance = roundedMoney(Number(opening.sales_before || 0) - Number(opening.expenses_before || 0));
-  let accumulated = openingBalance;
+  let runningFlow = openingBalance;
   const rows = dates.map((date) => {
     const entry = entriesByDate.get(date) || {
       id: null,
@@ -2130,8 +2130,8 @@ async function loadCashFlowReport(from, to) {
     };
     const expense = expensesByDate.get(date) || { totalExpenses: 0, entries: 0 };
     const totalSales = roundedMoney(entry.cashSales + entry.cardSales);
-    const dailyFlow = roundedMoney(totalSales - expense.totalExpenses);
-    accumulated = roundedMoney(accumulated + dailyFlow);
+    const dailyChange = roundedMoney(totalSales - expense.totalExpenses);
+    runningFlow = roundedMoney(runningFlow + dailyChange);
 
     return {
       ...entry,
@@ -2139,8 +2139,7 @@ async function loadCashFlowReport(from, to) {
       totalSales,
       expenses: expense.totalExpenses,
       expenseEntries: expense.entries,
-      dailyFlow,
-      accumulated
+      dailyFlow: runningFlow
     };
   });
 
@@ -2150,7 +2149,7 @@ async function loadCashFlowReport(from, to) {
       acc.totalCardSales = roundedMoney(acc.totalCardSales + item.cardSales);
       acc.totalSales = roundedMoney(acc.totalSales + item.totalSales);
       acc.totalExpenses = roundedMoney(acc.totalExpenses + item.expenses);
-      acc.netFlow = roundedMoney(acc.netFlow + item.dailyFlow);
+      acc.netFlow = roundedMoney(acc.netFlow + item.totalSales - item.expenses);
       acc.daysWithSales += item.totalSales > 0 ? 1 : 0;
       acc.expenseEntries += item.expenseEntries || 0;
       if (!acc.highestSalesDay || item.totalSales > acc.highestSalesDay.totalSales) {
@@ -2173,7 +2172,7 @@ async function loadCashFlowReport(from, to) {
   return {
     range: { from, to },
     openingBalance,
-    endingBalance: rows.length ? rows[rows.length - 1].accumulated : openingBalance,
+    endingBalance: rows.length ? rows[rows.length - 1].dailyFlow : openingBalance,
     summary,
     rows
   };
@@ -2188,7 +2187,7 @@ async function buildCashFlowWorkbook(report) {
   const sheet = workbook.addWorksheet("Flujo Caja");
   sheet.properties.defaultRowHeight = 20;
 
-  sheet.mergeCells("A1:H1");
+  sheet.mergeCells("A1:G1");
   sheet.getCell("A1").value = "Flujo de Caja - Inventario La Querendona";
   sheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
   sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF156B73" } };
@@ -2209,7 +2208,6 @@ async function buildCashFlowWorkbook(report) {
     "Venta total",
     "Gastos",
     "Flujo del dia",
-    "Flujo acumulado",
     "Nota"
   ]);
   header.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -2224,7 +2222,6 @@ async function buildCashFlowWorkbook(report) {
       item.totalSales,
       item.expenses,
       item.dailyFlow,
-      item.accumulated,
       item.note
     ]);
   });
@@ -2235,7 +2232,6 @@ async function buildCashFlowWorkbook(report) {
     report.summary.totalCardSales,
     report.summary.totalSales,
     report.summary.totalExpenses,
-    report.summary.netFlow,
     report.endingBalance,
     ""
   ]);
@@ -2248,9 +2244,8 @@ async function buildCashFlowWorkbook(report) {
   sheet.getColumn(4).width = 16;
   sheet.getColumn(5).width = 16;
   sheet.getColumn(6).width = 16;
-  sheet.getColumn(7).width = 18;
-  sheet.getColumn(8).width = 28;
-  for (let index = 2; index <= 7; index += 1) {
+  sheet.getColumn(7).width = 28;
+  for (let index = 2; index <= 6; index += 1) {
     sheet.getColumn(index).numFmt = '"$"#,##0.00';
   }
   sheet.views = [{ state: "frozen", ySplit: header.number }];

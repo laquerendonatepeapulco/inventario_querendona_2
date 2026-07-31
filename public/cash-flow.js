@@ -235,8 +235,8 @@ function renderCashFlowReport() {
   if (!cashFlowReport) {
     els.rows.innerHTML = `
       <tr>
-        <td colspan="9">
-          <div class="empty-state">Genera el flujo para ver ventas, gastos y saldo acumulado.</div>
+        <td colspan="8">
+          <div class="empty-state">Genera el flujo para ver ventas, gastos y flujo del dia.</div>
         </td>
       </tr>`;
     return;
@@ -254,7 +254,6 @@ function renderCashFlowReport() {
       <td data-label="Venta total">${formatter.format(item.totalSales)}</td>
       <td data-label="Gastos">${formatter.format(item.expenses)}</td>
       <td data-label="Flujo dia">${formatter.format(item.dailyFlow)}</td>
-      <td data-label="Acumulado">${formatter.format(item.accumulated)}</td>
       <td data-label="Nota">${escapeHtml(item.note || "Sin nota")}</td>
       <td data-label="Acciones">
         <button class="ghost-button table-edit-button" type="button" data-action="edit-cash-flow" data-date="${escapeHtml(item.date)}">Editar</button>
