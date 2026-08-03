@@ -29,7 +29,6 @@ const els = {
   date: document.querySelector("#cashFlowDate"),
   cashSales: document.querySelector("#cashFlowCashSales"),
   cardSales: document.querySelector("#cashFlowCardSales"),
-  note: document.querySelector("#cashFlowNote"),
   entryTotal: document.querySelector("#cashFlowEntryTotal"),
   start: document.querySelector("#cashFlowStart"),
   end: document.querySelector("#cashFlowEnd"),
@@ -167,7 +166,6 @@ function fillCashFlowForm(item) {
   els.date.value = item.date;
   els.cashSales.value = item.cashSales || "";
   els.cardSales.value = item.cardSales || "";
-  els.note.value = item.note || "";
   updateEntryTotal();
   els.cashSales.focus();
 }
@@ -178,8 +176,7 @@ async function saveCashFlowEntry(event) {
   const payload = {
     date: els.date.value,
     cashSales: Number(els.cashSales.value || 0),
-    cardSales: Number(els.cardSales.value || 0),
-    note: els.note.value.trim()
+    cardSales: Number(els.cardSales.value || 0)
   };
 
   if (!payload.date) {
@@ -235,7 +232,7 @@ function renderCashFlowReport() {
   if (!cashFlowReport) {
     els.rows.innerHTML = `
       <tr>
-        <td colspan="8">
+        <td colspan="7">
           <div class="empty-state">Genera el flujo para ver ventas, gastos y flujo del dia.</div>
         </td>
       </tr>`;
@@ -254,7 +251,6 @@ function renderCashFlowReport() {
       <td data-label="Venta total">${formatter.format(item.totalSales)}</td>
       <td data-label="Gastos">${formatter.format(item.expenses)}</td>
       <td data-label="Flujo dia">${formatter.format(item.dailyFlow)}</td>
-      <td data-label="Nota">${escapeHtml(item.note || "Sin nota")}</td>
       <td data-label="Acciones">
         <button class="ghost-button table-edit-button" type="button" data-action="edit-cash-flow" data-date="${escapeHtml(item.date)}">Editar</button>
       </td>

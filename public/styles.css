@@ -1061,12 +1061,6 @@ tbody tr:hover {
   white-space: nowrap;
 }
 
-.cash-flow-table td[data-label="Nota"] {
-  min-width: 180px;
-  max-width: 260px;
-  white-space: normal;
-}
-
 .report-metrics {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }

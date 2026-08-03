@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flujo de Caja - La Querendona</title>
     <link rel="icon" href="img/logo_pestaÃ±a.png" type="image/png">
-    <link rel="stylesheet" href="styles.css?v=20260731-3" />
+    <link rel="stylesheet" href="styles.css?v=20260803-1" />
   </head>
   <body class="cash-flow-page">
     <div class="app-shell">
@@ -141,10 +141,6 @@
               <input id="cashFlowCardSales" name="cardSales" type="number" min="0" step="0.01" placeholder="0.00" />
             </label>
           </div>
-          <label>
-            Nota
-            <textarea id="cashFlowNote" name="note" maxlength="180" rows="2" placeholder="Observacion del dia"></textarea>
-          </label>
           <div class="modal-actions">
             <button id="clearCashFlowForm" class="ghost-button" type="button">Limpiar</button>
             <button id="saveCashFlowEntry" class="primary-button" type="submit">Guardar ventas</button>
@@ -196,7 +192,6 @@
                 <th>Venta total</th>
                 <th>Gastos</th>
                 <th>Flujo dia</th>
-                <th>Nota</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -209,6 +204,6 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script src="auth.js?v=20260731-3"></script>
-    <script src="cash-flow.js?v=20260731-6"></script>
+    <script src="cash-flow.js?v=20260803-1"></script>
   </body>
 </html>

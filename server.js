@@ -2187,7 +2187,7 @@ async function buildCashFlowWorkbook(report) {
   const sheet = workbook.addWorksheet("Flujo Caja");
   sheet.properties.defaultRowHeight = 20;
 
-  sheet.mergeCells("A1:G1");
+  sheet.mergeCells("A1:F1");
   sheet.getCell("A1").value = "Flujo de Caja - Inventario La Querendona";
   sheet.getCell("A1").font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
   sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF156B73" } };
@@ -2207,8 +2207,7 @@ async function buildCashFlowWorkbook(report) {
     "Venta tarjeta",
     "Venta total",
     "Gastos",
-    "Flujo del dia",
-    "Nota"
+    "Flujo del dia"
   ]);
   header.font = { bold: true, color: { argb: "FFFFFFFF" } };
   header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF17202A" } };
@@ -2221,8 +2220,7 @@ async function buildCashFlowWorkbook(report) {
       item.cardSales,
       item.totalSales,
       item.expenses,
-      item.dailyFlow,
-      item.note
+      item.dailyFlow
     ]);
   });
 
@@ -2232,8 +2230,7 @@ async function buildCashFlowWorkbook(report) {
     report.summary.totalCardSales,
     report.summary.totalSales,
     report.summary.totalExpenses,
-    report.endingBalance,
-    ""
+    report.endingBalance
   ]);
   totalRow.font = { bold: true };
   totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDF4D5" } };
@@ -2244,7 +2241,6 @@ async function buildCashFlowWorkbook(report) {
   sheet.getColumn(4).width = 16;
   sheet.getColumn(5).width = 16;
   sheet.getColumn(6).width = 16;
-  sheet.getColumn(7).width = 28;
   for (let index = 2; index <= 6; index += 1) {
     sheet.getColumn(index).numFmt = '"$"#,##0.00';
   }
