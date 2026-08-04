@@ -289,6 +289,9 @@ function cashFlowEntryDto(row) {
     cashSales: Number(row.cash_sales || 0),
     cardSales: Number(row.card_sales || 0),
     totalSales: Number(row.cash_sales || 0) + Number(row.card_sales || 0),
+    expenseOverride: row.expense_override === null || row.expense_override === undefined
+      ? null
+      : Number(row.expense_override),
     note: row.note || "",
     createdByName: row.created_by_name || "Sin usuario",
     updatedByName: row.updated_by_name || row.created_by_name || "Sin usuario",
@@ -1309,6 +1312,10 @@ function sanitizeCashFlowEntry(input) {
   let date = String(input.date || input.flowDate || input.flow_date || "").trim();
   const cashSales = Number(input.cashSales ?? input.cash_sales ?? 0);
   const cardSales = Number(input.cardSales ?? input.card_sales ?? 0);
+  const rawExpenseOverride = input.expenseOverride ?? input.expense_override;
+  const expenseOverride = rawExpenseOverride === undefined || rawExpenseOverride === null || rawExpenseOverride === ""
+    ? null
+    : Number(rawExpenseOverride);
   const note = String(input.note || "").trim().slice(0, 180);
   const validDate = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -1328,10 +1335,17 @@ function sanitizeCashFlowEntry(input) {
     throw error;
   }
 
+  if (expenseOverride !== null && (!Number.isFinite(expenseOverride) || expenseOverride < 0)) {
+    const error = new Error("Los gastos historicos deben ser un numero positivo");
+    error.status = 400;
+    throw error;
+  }
+
   return {
     date,
     cashSales: roundedMoney(cashSales),
     cardSales: roundedMoney(cardSales),
+    expenseOverride: expenseOverride === null ? null : roundedMoney(expenseOverride),
     note
   };
 }
@@ -2090,12 +2104,23 @@ async function loadCashFlowReport(from, to) {
            WHERE flow_date < $1::date
          ), 0)::numeric AS sales_before,
          COALESCE((
-           SELECT SUM(total_cost)
-           FROM purchase_entries, first_cash_flow
-           WHERE first_cash_flow.first_date IS NOT NULL
-             AND first_cash_flow.first_date < $1::date
-             AND purchase_entries.created_at >= timezone($2, first_cash_flow.first_date::timestamp)
-             AND purchase_entries.created_at < timezone($2, $1::date::timestamp)
+           SELECT SUM(expense_amount)
+           FROM (
+             SELECT cash_flow_entries.expense_override AS expense_amount
+             FROM cash_flow_entries
+             WHERE cash_flow_entries.flow_date < $1::date
+               AND cash_flow_entries.expense_override IS NOT NULL
+             UNION ALL
+             SELECT purchase_entries.total_cost AS expense_amount
+             FROM purchase_entries
+             WHERE timezone($2, purchase_entries.created_at)::date < $1::date
+               AND NOT EXISTS (
+                 SELECT 1
+                 FROM cash_flow_entries
+                 WHERE cash_flow_entries.flow_date = timezone($2, purchase_entries.created_at)::date
+                   AND cash_flow_entries.expense_override IS NOT NULL
+               )
+           ) AS historical_or_live_expenses
          ), 0)::numeric AS expenses_before`,
       [from, timeZone]
     )
@@ -2128,7 +2153,9 @@ async function loadCashFlowReport(from, to) {
       updatedAt: null,
       createdAt: null
     };
-    const expense = expensesByDate.get(date) || { totalExpenses: 0, entries: 0 };
+    const expense = entry.expenseOverride !== null && entry.expenseOverride !== undefined
+      ? { totalExpenses: roundedMoney(entry.expenseOverride), entries: entry.expenseOverride > 0 ? 1 : 0 }
+      : expensesByDate.get(date) || { totalExpenses: 0, entries: 0 };
     const totalSales = roundedMoney(entry.cashSales + entry.cardSales);
     const dailyChange = roundedMoney(totalSales - expense.totalExpenses);
     runningFlow = roundedMoney(runningFlow + dailyChange);
@@ -2172,7 +2199,10 @@ async function loadCashFlowReport(from, to) {
   return {
     range: { from, to },
     openingBalance,
-    endingBalance: rows.length ? rows[rows.length - 1].dailyFlow : openingBalance,
+    // El saldo final debe ser el saldo acumulado antes del rango más
+    // el flujo neto calculado dentro del rango. Esto mantiene el resultado
+    // alineado con la columna "Flujo" del historial de Excel.
+    endingBalance: roundedMoney(openingBalance + summary.netFlow),
     summary,
     rows
   };
@@ -2971,6 +3001,7 @@ async function ensureSchema() {
   `);
   await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS cash_sales NUMERIC(12, 2) NOT NULL DEFAULT 0`);
   await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS card_sales NUMERIC(12, 2) NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS expense_override NUMERIC(12, 2)`);
   await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''`);
   await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id) ON DELETE SET NULL`);
   await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
@@ -4440,12 +4471,13 @@ app.post("/api/cash-flow", authRequired, adminRequired, async (req, res, next) =
     const entry = sanitizeCashFlowEntry(req.body);
     const result = await query(
       `WITH saved AS (
-         INSERT INTO cash_flow_entries (flow_date, cash_sales, card_sales, note, created_by, updated_by)
-         VALUES ($1::date, $2, $3, $4, $5, $5)
+         INSERT INTO cash_flow_entries (flow_date, cash_sales, card_sales, expense_override, note, created_by, updated_by)
+         VALUES ($1::date, $2, $3, $4, $5, $6, $6)
          ON CONFLICT (flow_date)
          DO UPDATE SET
            cash_sales = EXCLUDED.cash_sales,
            card_sales = EXCLUDED.card_sales,
+           expense_override = COALESCE(EXCLUDED.expense_override, cash_flow_entries.expense_override),
            note = EXCLUDED.note,
            updated_by = EXCLUDED.updated_by,
            updated_at = now()
@@ -4459,7 +4491,7 @@ app.post("/api/cash-flow", authRequired, adminRequired, async (req, res, next) =
        FROM saved
        LEFT JOIN users AS creator ON creator.id = saved.created_by
        LEFT JOIN users AS updater ON updater.id = saved.updated_by`,
-      [entry.date, entry.cashSales, entry.cardSales, entry.note, req.user.id]
+      [entry.date, entry.cashSales, entry.cardSales, entry.expenseOverride, entry.note, req.user.id]
     );
 
     res.status(201).json({ entry: cashFlowEntryDto(result.rows[0]) });
@@ -4645,17 +4677,19 @@ app.post("/api/import", authRequired, adminRequired, async (req, res, next) => {
     for (const item of cashFlowEntries) {
       const entry = sanitizeCashFlowEntry(item);
       await client.query(
-        `INSERT INTO cash_flow_entries (flow_date, cash_sales, card_sales, note, created_at, updated_at)
-         VALUES ($1::date, $2, $3, $4, COALESCE($5::timestamptz, now()), COALESCE($6::timestamptz, now()))
+        `INSERT INTO cash_flow_entries (flow_date, cash_sales, card_sales, expense_override, note, created_at, updated_at)
+         VALUES ($1::date, $2, $3, $4, $5, COALESCE($6::timestamptz, now()), COALESCE($7::timestamptz, now()))
          ON CONFLICT (flow_date)
-         DO UPDATE SET cash_sales = EXCLUDED.cash_sales,
-                       card_sales = EXCLUDED.card_sales,
-                       note = EXCLUDED.note,
-                       updated_at = EXCLUDED.updated_at`,
+           DO UPDATE SET cash_sales = EXCLUDED.cash_sales,
+                         card_sales = EXCLUDED.card_sales,
+                         expense_override = EXCLUDED.expense_override,
+                         note = EXCLUDED.note,
+                         updated_at = EXCLUDED.updated_at`,
         [
           entry.date,
           entry.cashSales,
           entry.cardSales,
+          entry.expenseOverride,
           entry.note,
           item.createdAt || item.created_at || null,
           item.updatedAt || item.updated_at || null

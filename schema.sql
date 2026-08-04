@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS cash_flow_entries (
   flow_date DATE NOT NULL UNIQUE,
   cash_sales NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (cash_sales >= 0),
   card_sales NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (card_sales >= 0),
+  expense_override NUMERIC(12, 2) CHECK (expense_override >= 0),
   note TEXT NOT NULL DEFAULT '',
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
