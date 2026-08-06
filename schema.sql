@@ -78,19 +78,6 @@ CREATE TABLE IF NOT EXISTS purchase_entries (
 
 ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS measure_unit TEXT NOT NULL DEFAULT 'Pieza';
 
-CREATE TABLE IF NOT EXISTS cash_flow_entries (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  flow_date DATE NOT NULL UNIQUE,
-  cash_sales NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (cash_sales >= 0),
-  card_sales NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (card_sales >= 0),
-  expense_override NUMERIC(12, 2) CHECK (expense_override >= 0),
-  note TEXT NOT NULL DEFAULT '',
-  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 CREATE TABLE IF NOT EXISTS stock_alerts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID REFERENCES products(id) ON DELETE SET NULL,
@@ -148,7 +135,6 @@ CREATE INDEX IF NOT EXISTS idx_movements_created_at ON movements(created_at DESC
 CREATE INDEX IF NOT EXISTS idx_movements_type ON movements(movement_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_purchase_entries_created_at ON purchase_entries(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_purchase_entries_supplier ON purchase_entries(supplier);
-CREATE INDEX IF NOT EXISTS idx_cash_flow_entries_flow_date ON cash_flow_entries(flow_date DESC);
 CREATE INDEX IF NOT EXISTS idx_stock_alerts_status ON stock_alerts(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_shift_exit_alert_runs_created_at ON shift_exit_alert_runs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_shift_exit_completion_notices_created_at ON shift_exit_completion_notices(created_at DESC);

@@ -282,24 +282,6 @@ function dateKeyValue(value) {
   return String(value).slice(0, 10);
 }
 
-function cashFlowEntryDto(row) {
-  return {
-    id: row.id,
-    date: row.date_key || dateKeyValue(row.flow_date),
-    cashSales: Number(row.cash_sales || 0),
-    cardSales: Number(row.card_sales || 0),
-    totalSales: Number(row.cash_sales || 0) + Number(row.card_sales || 0),
-    expenseOverride: row.expense_override === null || row.expense_override === undefined
-      ? null
-      : Number(row.expense_override),
-    note: row.note || "",
-    createdByName: row.created_by_name || "Sin usuario",
-    updatedByName: row.updated_by_name || row.created_by_name || "Sin usuario",
-    updatedAt: row.updated_at,
-    createdAt: row.created_at
-  };
-}
-
 async function query(text, params = []) {
   return pool.query(text, params);
 }
@@ -1301,55 +1283,6 @@ function parsePurchaseFilters(req) {
   };
 }
 
-function parseExpenseControlFilters(req) {
-  const category = String(req.query.category || "").trim();
-  return {
-    category: category && category !== "all" ? category : ""
-  };
-}
-
-function sanitizeCashFlowEntry(input) {
-  let date = String(input.date || input.flowDate || input.flow_date || "").trim();
-  const cashSales = Number(input.cashSales ?? input.cash_sales ?? 0);
-  const cardSales = Number(input.cardSales ?? input.card_sales ?? 0);
-  const rawExpenseOverride = input.expenseOverride ?? input.expense_override;
-  const expenseOverride = rawExpenseOverride === undefined || rawExpenseOverride === null || rawExpenseOverride === ""
-    ? null
-    : Number(rawExpenseOverride);
-  const note = String(input.note || "").trim().slice(0, 180);
-  const validDate = /^\d{4}-\d{2}-\d{2}$/;
-
-  if (/^\d{4}-\d{2}-\d{2}T/.test(date)) {
-    date = date.slice(0, 10);
-  }
-
-  if (!validDate.test(date)) {
-    const error = new Error("Captura una fecha valida para el flujo");
-    error.status = 400;
-    throw error;
-  }
-
-  if (!Number.isFinite(cashSales) || cashSales < 0 || !Number.isFinite(cardSales) || cardSales < 0) {
-    const error = new Error("Las ventas deben ser numeros positivos");
-    error.status = 400;
-    throw error;
-  }
-
-  if (expenseOverride !== null && (!Number.isFinite(expenseOverride) || expenseOverride < 0)) {
-    const error = new Error("Los gastos historicos deben ser un numero positivo");
-    error.status = 400;
-    throw error;
-  }
-
-  return {
-    date,
-    cashSales: roundedMoney(cashSales),
-    cardSales: roundedMoney(cardSales),
-    expenseOverride: expenseOverride === null ? null : roundedMoney(expenseOverride),
-    note
-  };
-}
-
 function reportCategoryPath(item) {
   if (item.subcategory) return `${item.category || "Sin categoria"} / ${item.subcategory}`;
   return item.category || "Sin categoria";
@@ -1913,6 +1846,7 @@ async function buildPurchaseReportWorkbook(report) {
   return workbook;
 }
 
+/* Legacy Control de Gastos y Flujo de Caja implementation removed from the application.
 async function loadExpenseControlReport(from, to, filters = {}) {
   const timeZone = process.env.NOTIFICATION_TIME_ZONE || "America/Mexico_City";
   const params = [from, to, timeZone];
@@ -2282,7 +2216,7 @@ async function buildCashFlowWorkbook(report) {
 
   return workbook;
 }
-
+*/
 
 async function buildProductsWorkbook(products, category = "Todas") {
   const workbook = new ExcelJS.Workbook();
@@ -2987,25 +2921,6 @@ async function ensureSchema() {
   await query(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS subcategory TEXT NOT NULL DEFAULT ''`);
   await query(`ALTER TABLE purchase_entries ADD COLUMN IF NOT EXISTS measure_unit TEXT NOT NULL DEFAULT 'Pieza'`);
   await query(`
-    CREATE TABLE IF NOT EXISTS cash_flow_entries (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      flow_date DATE NOT NULL UNIQUE,
-      cash_sales NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (cash_sales >= 0),
-      card_sales NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (card_sales >= 0),
-      note TEXT NOT NULL DEFAULT '',
-      created_by UUID REFERENCES users(id) ON DELETE SET NULL,
-      updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `);
-  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS cash_sales NUMERIC(12, 2) NOT NULL DEFAULT 0`);
-  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS card_sales NUMERIC(12, 2) NOT NULL DEFAULT 0`);
-  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS expense_override NUMERIC(12, 2)`);
-  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT ''`);
-  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id) ON DELETE SET NULL`);
-  await query(`ALTER TABLE cash_flow_entries ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`);
-  await query(`
     CREATE TABLE IF NOT EXISTS stock_alerts (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       product_id UUID REFERENCES products(id) ON DELETE SET NULL,
@@ -3065,7 +2980,6 @@ async function ensureSchema() {
   await query(`CREATE INDEX IF NOT EXISTS idx_movements_type ON movements(movement_type, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_purchase_entries_created_at ON purchase_entries(created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_purchase_entries_supplier ON purchase_entries(supplier)`);
-  await query(`CREATE INDEX IF NOT EXISTS idx_cash_flow_entries_flow_date ON cash_flow_entries(flow_date DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_stock_alerts_status ON stock_alerts(status, created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_shift_exit_alert_runs_created_at ON shift_exit_alert_runs(created_at DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_shift_exit_completion_notices_created_at ON shift_exit_completion_notices(created_at DESC)`);
@@ -4428,94 +4342,6 @@ app.get("/api/reports/products.xlsx", authRequired, stockAccessRequired, async (
   }
 });
 
-app.get("/api/reports/expense-control", authRequired, adminRequired, async (req, res, next) => {
-  try {
-    const { from, to } = parseReportRange(req);
-    const filters = parseExpenseControlFilters(req);
-    const report = await loadExpenseControlReport(from, to, filters);
-    res.json(report);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/reports/expense-control.xlsx", authRequired, adminRequired, async (req, res, next) => {
-  try {
-    const { from, to } = parseReportRange(req);
-    const filters = parseExpenseControlFilters(req);
-    const report = await loadExpenseControlReport(from, to, filters);
-    const workbook = await buildExpenseControlWorkbook(report);
-    const filename = `control-gastos-${from}-a-${to}.xlsx`;
-
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    await workbook.xlsx.write(res);
-    res.end();
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/cash-flow", authRequired, adminRequired, async (req, res, next) => {
-  try {
-    const { from, to } = parseReportRange(req);
-    const report = await loadCashFlowReport(from, to);
-    res.json(report);
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post("/api/cash-flow", authRequired, adminRequired, async (req, res, next) => {
-  try {
-    const entry = sanitizeCashFlowEntry(req.body);
-    const result = await query(
-      `WITH saved AS (
-         INSERT INTO cash_flow_entries (flow_date, cash_sales, card_sales, expense_override, note, created_by, updated_by)
-         VALUES ($1::date, $2, $3, $4, $5, $6, $6)
-         ON CONFLICT (flow_date)
-         DO UPDATE SET
-           cash_sales = EXCLUDED.cash_sales,
-           card_sales = EXCLUDED.card_sales,
-           expense_override = COALESCE(EXCLUDED.expense_override, cash_flow_entries.expense_override),
-           note = EXCLUDED.note,
-           updated_by = EXCLUDED.updated_by,
-           updated_at = now()
-         RETURNING *
-       )
-       SELECT
-         saved.*,
-         to_char(saved.flow_date, 'YYYY-MM-DD') AS date_key,
-         creator.name AS created_by_name,
-         updater.name AS updated_by_name
-       FROM saved
-       LEFT JOIN users AS creator ON creator.id = saved.created_by
-       LEFT JOIN users AS updater ON updater.id = saved.updated_by`,
-      [entry.date, entry.cashSales, entry.cardSales, entry.expenseOverride, entry.note, req.user.id]
-    );
-
-    res.status(201).json({ entry: cashFlowEntryDto(result.rows[0]) });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.get("/api/cash-flow.xlsx", authRequired, adminRequired, async (req, res, next) => {
-  try {
-    const { from, to } = parseReportRange(req);
-    const report = await loadCashFlowReport(from, to);
-    const workbook = await buildCashFlowWorkbook(report);
-    const filename = `flujo-caja-${from}-a-${to}.xlsx`;
-
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    await workbook.xlsx.write(res);
-    res.end();
-  } catch (error) {
-    next(error);
-  }
-});
-
 app.get("/api/reports/profit", authRequired, adminRequired, async (req, res, next) => {
   try {
     const { from, to } = parseReportRange(req);
@@ -4614,7 +4440,7 @@ app.delete("/api/movements", authRequired, adminRequired, async (req, res, next)
 
 app.get("/api/export", authRequired, adminRequired, async (req, res, next) => {
   try {
-    const [products, movements, alerts, purchases, cashFlowEntries] = await Promise.all([
+    const [products, movements, alerts, purchases] = await Promise.all([
       query(`SELECT * FROM products ORDER BY name ASC`),
       query(`SELECT * FROM movements ORDER BY created_at DESC`),
       query(`SELECT * FROM stock_alerts ORDER BY created_at DESC`),
@@ -4622,21 +4448,12 @@ app.get("/api/export", authRequired, adminRequired, async (req, res, next) => {
              FROM purchase_entries
              LEFT JOIN users ON users.id = purchase_entries.created_by
              ORDER BY purchase_entries.created_at DESC`),
-      query(`SELECT cash_flow_entries.*,
-                    to_char(cash_flow_entries.flow_date, 'YYYY-MM-DD') AS date_key,
-                    creator.name AS created_by_name,
-                    updater.name AS updated_by_name
-             FROM cash_flow_entries
-             LEFT JOIN users AS creator ON creator.id = cash_flow_entries.created_by
-             LEFT JOIN users AS updater ON updater.id = cash_flow_entries.updated_by
-             ORDER BY cash_flow_entries.flow_date DESC`)
     ]);
     res.json({
       products: products.rows.map(productDto),
       movements: movements.rows.map(movementDto),
       alerts: alerts.rows.map(stockAlertDto),
-      purchases: purchases.rows.map(purchaseDto),
-      cashFlowEntries: cashFlowEntries.rows.map(cashFlowEntryDto)
+      purchases: purchases.rows.map(purchaseDto)
     });
   } catch (error) {
     next(error);
@@ -4646,12 +4463,10 @@ app.get("/api/export", authRequired, adminRequired, async (req, res, next) => {
 app.post("/api/import", authRequired, adminRequired, async (req, res, next) => {
   const products = Array.isArray(req.body.products) ? req.body.products : [];
   const purchases = Array.isArray(req.body.purchases) ? req.body.purchases : [];
-  const cashFlowEntries = Array.isArray(req.body.cashFlowEntries) ? req.body.cashFlowEntries : [];
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     await client.query(`DELETE FROM stock_alerts`);
-    await client.query(`DELETE FROM cash_flow_entries`);
     await client.query(`DELETE FROM purchase_entries`);
     await client.query(`DELETE FROM movements`);
     await client.query(`DELETE FROM products`);
@@ -4674,30 +4489,8 @@ app.post("/api/import", authRequired, adminRequired, async (req, res, next) => {
         sanitizePurchaseBackup(item, productIdsBySku.get(sku) || null)
       );
     }
-    for (const item of cashFlowEntries) {
-      const entry = sanitizeCashFlowEntry(item);
-      await client.query(
-        `INSERT INTO cash_flow_entries (flow_date, cash_sales, card_sales, expense_override, note, created_at, updated_at)
-         VALUES ($1::date, $2, $3, $4, $5, COALESCE($6::timestamptz, now()), COALESCE($7::timestamptz, now()))
-         ON CONFLICT (flow_date)
-           DO UPDATE SET cash_sales = EXCLUDED.cash_sales,
-                         card_sales = EXCLUDED.card_sales,
-                         expense_override = EXCLUDED.expense_override,
-                         note = EXCLUDED.note,
-                         updated_at = EXCLUDED.updated_at`,
-        [
-          entry.date,
-          entry.cashSales,
-          entry.cardSales,
-          entry.expenseOverride,
-          entry.note,
-          item.createdAt || item.created_at || null,
-          item.updatedAt || item.updated_at || null
-        ]
-      );
-    }
     await client.query("COMMIT");
-    res.json({ imported: products.length, purchases: purchases.length, cashFlowEntries: cashFlowEntries.length });
+    res.json({ imported: products.length, purchases: purchases.length });
   } catch (error) {
     await client.query("ROLLBACK");
     next(error);
@@ -4711,7 +4504,6 @@ app.post("/api/reset-demo", authRequired, adminRequired, async (req, res, next) 
   try {
     await client.query("BEGIN");
     await client.query(`DELETE FROM stock_alerts`);
-    await client.query(`DELETE FROM cash_flow_entries`);
     await client.query(`DELETE FROM purchase_entries`);
     await client.query(`DELETE FROM movements`);
     await client.query(`DELETE FROM products`);
