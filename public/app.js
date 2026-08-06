@@ -7,7 +7,6 @@ let state = {
   exitReport: null,
   purchaseReport: null,
   comparisonReport: null,
-  expenseControlReport: null,
   profitReport: null,
   stockAlerts: [],
   smartAlerts: [],
@@ -156,16 +155,6 @@ const els = {
   comparisonConsumedCost: document.querySelector("#comparisonConsumedCost"),
   comparisonNetUnits: document.querySelector("#comparisonNetUnits"),
   comparisonRows: document.querySelector("#comparisonRows"),
-  expenseStart: document.querySelector("#expenseStart"),
-  expenseEnd: document.querySelector("#expenseEnd"),
-  expenseCategory: document.querySelector("#expenseCategory"),
-  expenseTotalCost: document.querySelector("#expenseTotalCost"),
-  expenseConcepts: document.querySelector("#expenseConcepts"),
-  expenseEntries: document.querySelector("#expenseEntries"),
-  expenseTopDay: document.querySelector("#expenseTopDay"),
-  expenseTopDayLabel: document.querySelector("#expenseTopDayLabel"),
-  expenseControlHead: document.querySelector("#expenseControlHead"),
-  expenseControlRows: document.querySelector("#expenseControlRows"),
   purchaseForm: document.querySelector("#purchaseForm"),
   purchaseCategory: document.querySelector("#purchaseCategory"),
   purchaseSubcategory: document.querySelector("#purchaseSubcategory"),
@@ -332,7 +321,6 @@ function panelFromLocationHash() {
     "products",
     "entries",
     "exits",
-    "expenseControl",
     "comparison",
     "movements",
     "reports",
@@ -420,8 +408,6 @@ function bindEvents() {
   document.querySelector("#clearExitRegisterForm").addEventListener("click", resetExitRegisterForm);
   document.querySelector("#loadComparisonReport").addEventListener("click", loadComparisonReport);
   document.querySelector("#downloadComparisonReport").addEventListener("click", downloadComparisonReport);
-  document.querySelector("#loadExpenseControlReport").addEventListener("click", loadExpenseControlReport);
-  document.querySelector("#downloadExpenseControlReport").addEventListener("click", downloadExpenseControlReport);
   document.querySelector("#loadPurchaseReport").addEventListener("click", loadPurchaseReport);
   document.querySelector("#downloadPurchaseReport").addEventListener("click", downloadPurchaseReport);
   document.querySelector("#openBulkPurchaseModal").addEventListener("click", openBulkPurchaseModal);
@@ -553,9 +539,6 @@ function bindEvents() {
   els.exitEnd.addEventListener("change", () => handleExitWeekDateChange(els.exitEnd.value));
   els.comparisonStart.addEventListener("change", () => handleComparisonWeekDateChange(els.comparisonStart.value));
   els.comparisonEnd.addEventListener("change", () => handleComparisonWeekDateChange(els.comparisonEnd.value));
-  els.expenseStart.addEventListener("change", () => handleExpenseWeekDateChange(els.expenseStart.value));
-  els.expenseEnd.addEventListener("change", () => handleExpenseWeekDateChange(els.expenseEnd.value));
-  els.expenseCategory.addEventListener("change", loadExpenseControlReport);
   els.purchaseQuantity.addEventListener("input", updatePurchaseTotal);
   els.purchaseUnitCost.addEventListener("input", updatePurchaseTotal);
   els.exitRegisterQuantity.addEventListener("input", updateExitStockPreview);
@@ -738,15 +721,10 @@ if (!isAdmin()) {
     "#downloadIncomeReport",
     "#loadProfitReport",
     "#downloadProfitReport",
-    "#loadExpenseControlReport",
-    "#downloadExpenseControlReport",
     "#reportStart",
     "#reportEnd",
     "#profitStart",
     "#profitEnd",
-    "#expenseStart",
-    "#expenseEnd",
-    "#expenseCategory",
     "#importFile",
     "#resetPasswordUser",
     "#resetPasswordValue",
@@ -864,11 +842,6 @@ function renderResetPasswordUsers() {
 }
 
 function switchPanel(panel) {
-  if (panel === "cashFlowPage") {
-    window.location.href = "flujo-caja.html";
-    return;
-  }
-
   if (!isAdmin()) {
     const allowedPanels = ["entries", "exits"];
 
@@ -903,7 +876,6 @@ function switchPanel(panel) {
   if (panel === "reports" && isAdmin() && !state.incomeReport) loadIncomeReport();
   if (panel === "exits" && canManageStock() && !state.exitReport) loadExitReport();
   if (panel === "comparison" && canManageStock() && !state.comparisonReport) loadComparisonReport();
-  if (panel === "expenseControl" && isAdmin() && !state.expenseControlReport) loadExpenseControlReport();
   if (panel === "profit" && isAdmin() && !state.profitReport) loadProfitReport();
 }
 
@@ -949,8 +921,6 @@ function render() {
   renderIncomeReport();
   renderExitReport();
   renderComparisonReport();
-  renderExpenseControlCategoryOptions();
-  renderExpenseControlReport();
   renderProfitReport();
   renderResetPasswordUsers();
   animateChart();
@@ -1391,9 +1361,6 @@ function setDefaultReportDates() {
     els.profitStart.value = firstDayValue;
     els.profitEnd.value = today;
   }
-  if (els.expenseStart && els.expenseEnd) {
-    setExpenseWeekRange(now);
-  }
 }
 
 function parseDateInputValue(value) {
@@ -1471,24 +1438,6 @@ function handleComparisonWeekDateChange(value) {
   }
 }
 
-function setExpenseWeekRange(value) {
-  if (!els.expenseStart || !els.expenseEnd) return false;
-  const range = weekRangeForDate(value);
-  if (!range) return false;
-
-  els.expenseStart.value = range.from;
-  els.expenseEnd.value = range.to;
-  return true;
-}
-
-function handleExpenseWeekDateChange(value) {
-  if (!setExpenseWeekRange(value)) return;
-  state.expenseControlReport = null;
-  if (activePanel === "expenseControl") {
-    loadExpenseControlReport();
-  }
-}
-
 function reportQueryString() {
   const params = new URLSearchParams({
     from: els.reportStart.value,
@@ -1532,17 +1481,6 @@ function profitQueryString() {
     from: els.profitStart.value,
     to: els.profitEnd.value
   });
-  return params.toString();
-}
-
-function expenseControlQueryString() {
-  const params = new URLSearchParams({
-    from: els.expenseStart.value,
-    to: els.expenseEnd.value
-  });
-  if (els.expenseCategory?.value && els.expenseCategory.value !== "all") {
-    params.set("category", els.expenseCategory.value);
-  }
   return params.toString();
 }
 
@@ -1893,20 +1831,6 @@ function renderPurchaseReportCategoryOptions() {
     els.purchaseReportCategory.append(option);
   });
   els.purchaseReportCategory.value = categories.includes(current) ? current : "all";
-}
-
-function renderExpenseControlCategoryOptions() {
-  if (!els.expenseCategory) return;
-  const current = els.expenseCategory.value || "all";
-  const categories = getCategoryOptions();
-  els.expenseCategory.innerHTML = `<option value="all">Todas las categorias</option>`;
-  categories.forEach((category) => {
-    const option = document.createElement("option");
-    option.value = category;
-    option.textContent = category;
-    els.expenseCategory.append(option);
-  });
-  els.expenseCategory.value = categories.includes(current) ? current : "all";
 }
 
 function renderPurchaseReportProductFilter() {
@@ -2534,7 +2458,6 @@ async function saveBulkPurchase() {
   state.incomeReport = null;
   state.exitReport = null;
   state.comparisonReport = null;
-  state.expenseControlReport = null;
   render();
   showToast(`Entrada grande registrada: ${payload.summary?.totalEntries || 0} productos.`);
 }
@@ -3137,7 +3060,6 @@ async function saveEditedPurchase(event) {
   state.exitReport = null;
   state.comparisonReport = null;
   state.profitReport = null;
-  state.expenseControlReport = null;
   await loadRemoteData();
   await loadPurchaseReport();
   render();
@@ -3167,7 +3089,6 @@ async function deleteEditedPurchase() {
   state.exitReport = null;
   state.comparisonReport = null;
   state.profitReport = null;
-  state.expenseControlReport = null;
   await loadRemoteData();
   await loadPurchaseReport();
   render();
@@ -3233,7 +3154,6 @@ async function savePurchaseFromForm(event) {
   state.incomeReport = null;
   state.exitReport = null;
   state.comparisonReport = null;
-  state.expenseControlReport = null;
   render();
   showToast("Entrada registrada y stock actualizado.");
   switchPanel("entries");
@@ -3892,134 +3812,6 @@ async function downloadComparisonReport() {
   showToast("Comparativa descargada.");
 }
 
-async function loadExpenseControlReport() {
-  if (!requireAdmin()) return;
-  if (!els.expenseStart.value || !els.expenseEnd.value) {
-    showToast("Selecciona fecha inicial y final.");
-    return;
-  }
-  setExpenseWeekRange(els.expenseStart.value);
-
-  const response = await window.Auth.apiFetch(`/api/reports/expense-control?${expenseControlQueryString()}`);
-  const payload = await response.json();
-  if (!response.ok) {
-    showToast(payload.error || "No se pudo generar el control de gastos.");
-    return;
-  }
-
-  state.expenseControlReport = payload;
-  renderExpenseControlReport();
-}
-
-function renderExpenseControlReport() {
-  if (!els.expenseControlRows || !els.expenseControlHead) return;
-  const report = state.expenseControlReport;
-  const summary = report?.summary || { totalCost: 0, conceptCount: 0, totalEntries: 0, highestDay: null };
-  const dates = report?.dates || [];
-  const totalColumns = Math.max(1, dates.length + 2);
-
-  els.expenseTotalCost.textContent = formatter.format(summary.totalCost || 0);
-  els.expenseConcepts.textContent = summary.conceptCount || 0;
-  els.expenseEntries.textContent = summary.totalEntries || 0;
-  els.expenseTopDay.textContent = formatter.format(summary.highestDay?.total || 0);
-  els.expenseTopDayLabel.textContent = summary.highestDay?.total > 0
-    ? formatReportDateLabel(summary.highestDay.date)
-    : "Sin datos";
-
-  els.expenseControlHead.innerHTML = "";
-  els.expenseControlRows.innerHTML = "";
-
-  if (!isAdmin()) {
-    els.expenseControlRows.innerHTML = `
-      <tr>
-        <td colspan="${totalColumns}">
-          <div class="empty-state">Solo administradores pueden consultar el control de gastos.</div>
-        </td>
-      </tr>`;
-    return;
-  }
-
-  if (!report) {
-    els.expenseControlRows.innerHTML = `
-      <tr>
-        <td colspan="${totalColumns}">
-          <div class="empty-state">Genera el control de gastos para ver compras por concepto y dia.</div>
-        </td>
-      </tr>`;
-    return;
-  }
-
-  els.expenseControlHead.innerHTML = `
-    <tr>
-      <th class="expense-concept-column">Concepto</th>
-      ${dates.map((date) => `<th>${escapeHtml(formatReportDateLabel(date))}</th>`).join("")}
-      <th>Total</th>
-    </tr>`;
-
-  if (!report.rows.length) {
-    els.expenseControlRows.innerHTML = `
-      <tr>
-        <td colspan="${totalColumns}">
-          <div class="empty-state">No hay compras registradas en este rango de fechas.</div>
-        </td>
-      </tr>`;
-    return;
-  }
-
-  report.rows.forEach((item) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td class="expense-concept-column" data-label="Concepto">
-        <strong>${escapeHtml(item.concept)}</strong>
-        <small>${item.entries || 0} entradas</small>
-      </td>
-      ${dates.map((date) => `
-        <td data-label="${escapeHtml(formatReportDateLabel(date))}">
-          ${formatter.format(item.days?.[date] || 0)}
-        </td>`).join("")}
-      <td class="expense-total-cell" data-label="Total">${formatter.format(item.total || 0)}</td>
-    `;
-    els.expenseControlRows.append(row);
-  });
-
-  const totalRow = document.createElement("tr");
-  totalRow.className = "expense-total-row";
-  totalRow.innerHTML = `
-    <td class="expense-concept-column" data-label="Concepto"><strong>Total</strong></td>
-    ${dates.map((date) => `
-      <td data-label="${escapeHtml(formatReportDateLabel(date))}">
-        ${formatter.format(summary.dateTotals?.[date] || 0)}
-      </td>`).join("")}
-    <td class="expense-total-cell" data-label="Total">${formatter.format(summary.totalCost || 0)}</td>
-  `;
-  els.expenseControlRows.append(totalRow);
-}
-
-async function downloadExpenseControlReport() {
-  if (!requireAdmin()) return;
-  if (!els.expenseStart.value || !els.expenseEnd.value) {
-    showToast("Selecciona fecha inicial y final.");
-    return;
-  }
-  setExpenseWeekRange(els.expenseStart.value);
-
-  const response = await window.Auth.apiFetch(`/api/reports/expense-control.xlsx?${expenseControlQueryString()}`);
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    showToast(payload.error || "No se pudo descargar el control de gastos.");
-    return;
-  }
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `control-gastos-${els.expenseStart.value}-a-${els.expenseEnd.value}.xlsx`;
-  anchor.click();
-  URL.revokeObjectURL(url);
-  showToast("Control de gastos descargado.");
-}
-
 function animateChart() {
   if (!els.chart) return;
   drawCategoryChart();
@@ -4468,7 +4260,6 @@ async function resetDemo() {
   state.exitReport = null;
   state.purchaseReport = null;
   state.comparisonReport = null;
-  state.expenseControlReport = null;
   state.profitReport = null;
   await loadRemoteData();
   render();
@@ -4525,7 +4316,6 @@ function importBackup(event) {
       state.exitReport = null;
       state.purchaseReport = null;
       state.comparisonReport = null;
-      state.expenseControlReport = null;
       state.profitReport = null;
       await loadRemoteData();
       render();

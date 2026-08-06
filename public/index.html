@@ -58,14 +58,6 @@
             <span class="icon">−</span>
             Salidas
           </button>
-          <button class="nav-item" data-panel="expenseControl" type="button">
-            <span class="icon">$</span>
-            Control de Gastos
-          </button>
-          <button class="nav-item" data-page="flujo-caja.html" type="button">
-            <span class="icon">$</span>
-            Flujo de Caja
-          </button>
           <button class="nav-item" data-panel="comparison" type="button">
             <span class="icon">≍</span>
             Comparativa
@@ -94,8 +86,6 @@
             <option value="products">Productos</option>
             <option value="entries">Entradas</option>
             <option value="exits">Salidas</option>
-            <option value="expenseControl">Control de Gastos</option>
-            <option value="cashFlowPage">Flujo de Caja</option>
             <option value="comparison">Comparativa</option>
             <option value="movements">Movimientos</option>
             <option value="reports">Reportes</option>
@@ -424,64 +414,6 @@
             </div>
           </div>
           <div id="movementTimeline" class="timeline"></div>
-        </section>
-
-        <section id="expenseControl" class="panel" aria-labelledby="expenseControlTitle">
-          <div class="toolbar">
-            <div>
-              <p class="eyebrow">Compras por concepto</p>
-              <h2 id="expenseControlTitle">Control de Gastos</h2>
-            </div>
-            <button id="downloadExpenseControlReport" class="primary-button" type="button">Descargar Excel</button>
-          </div>
-
-          <section class="workspace-section report-controls">
-            <label>
-              Desde
-              <input id="expenseStart" type="date" />
-            </label>
-            <label>
-              Hasta
-              <input id="expenseEnd" type="date" />
-            </label>
-            <label>
-              Categoria
-              <select id="expenseCategory" aria-label="Filtrar gastos por categoria">
-                <option value="all">Todas las categorias</option>
-              </select>
-            </label>
-            <button id="loadExpenseControlReport" class="ghost-button" type="button">Generar reporte</button>
-          </section>
-
-          <div class="metrics-grid report-metrics">
-            <article class="metric-card">
-              <span>Gasto total</span>
-              <strong id="expenseTotalCost">$0</strong>
-              <small>Total del periodo</small>
-            </article>
-            <article class="metric-card">
-              <span>Conceptos</span>
-              <strong id="expenseConcepts">0</strong>
-              <small>Categorias con compra</small>
-            </article>
-            <article class="metric-card">
-              <span>Entradas</span>
-              <strong id="expenseEntries">0</strong>
-              <small>Compras registradas</small>
-            </article>
-            <article class="metric-card">
-              <span>Dia mayor</span>
-              <strong id="expenseTopDay">$0</strong>
-              <small id="expenseTopDayLabel">Sin datos</small>
-            </article>
-          </div>
-
-          <div class="table-wrap expense-table-wrap">
-            <table class="expense-table">
-              <thead id="expenseControlHead"></thead>
-              <tbody id="expenseControlRows"></tbody>
-            </table>
-          </div>
         </section>
 
         <section id="reports" class="panel" aria-labelledby="reportsTitle">
